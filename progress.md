@@ -177,6 +177,6 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ### Infrastructure (before going live)
 - [ ] **Real backend + payment processor** — Checkout is currently a simulation. Needs Stripe or similar wired to an actual order endpoint.
-- [x] **Web3Forms** — Key live (`d4c1f238-…`). Inquire and Notify forms send real emails.
+- [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
 - [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages).
 - [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`). Pageviews, add-to-cart, form leads all tracked.
