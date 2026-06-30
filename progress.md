@@ -151,6 +151,44 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 5 — 2026-06-30
+
+### Hero & Provenance — brand-voice reframe (scarcity → resemblance)
+- Owner's read: the old copy ("Found once. Never repeated.") leaned entirely on loss/FOMO. The intended hook is resemblance — a DOKU object mirrors the kind of person who buys it (someone who's built or found something once, without a template).
+- Hero headline: *"Found once. Never repeated."* → **"Only one. So are you."** Eyebrow: → **"For objects — and people — that exist exactly once."**
+- Homepage "Available now" and `/collection` subtext both reworked to tie the closure-fact to the reader, without dropping the literal scarcity statement (still required — DOKU never overstates availability).
+- New **Provenance Chapter IV — "The Resemblance"** inserted between "The Claim" and "The Record" (which shifted to Chapter V). States directly who DOKU is for; closes with "If the paragraph above sounds like you, you already understand what we sell."
+- Left untouched on purpose: `prov-closing` operational promises, footer tagline, manifesto block — factual, not persuasion copy.
+
+### Hero scroll indicator
+- Replaced the literal "Scroll" text label with a thin gold SVG chevron that points down by default and flips 180° (0.5s ease) the instant the user scrolls upward — tracked via a dedicated `scroll` listener diffing consecutive `window.scrollY` reads.
+
+### Homepage carousel — "Available now"
+- Converted the homepage's Available Now grid (only — `/collection` and item-detail's "related" grid stayed plain grids) into a horizontal scroller: fixed 300px cards, real gaps (28px desktop / 18px mobile) with each card individually bordered, instead of the old touching-tile "hairline grid" trick.
+- The site's existing wheel-scroll system intercepts all wheel input on `window` for the vertical parallax effect. Taught it to redirect into `carousel.scrollLeft` when the cursor is over `.carousel` — and critically, to **fall through to normal vertical scroll once the carousel hits either edge**, so the page doesn't get stuck requiring the user to move the mouse off the carousel to keep scrolling.
+- `scroll-snap-type` was tried and reverted — it fought the wheel handler's programmatic `scrollLeft` increments and intermittently cancelled them. Plain `overflow-x:auto` is what's live.
+
+### Mobile product-detail padding fix
+- `viewProduct()`'s wrapper had `style="padding-left:0; padding-right:0;"` inline — that silently overrode `.product`'s own class-based side padding (48px desktop / 24px mobile) at every screen size, since inline styles always win over stylesheet rules. On mobile, text was touching the bezels. Removed the dead inline override; `.product`'s own padding (which already had correct values for both breakpoints) now applies normally.
+
+### Hero-invisible-on-reload fix
+- The hero's scroll-parallax fades `hero-inner` to `opacity:0` past 480px of scroll. Browsers restore scroll position on reload by default — if a visitor reloaded while scrolled past that point, the hero painted invisible before they ever touched the scrollbar, looking like it had vanished entirely.
+- Fix: `history.scrollRestoration = 'manual'` + `window.scrollTo(0,0)` at the very top of the script, so every load starts clean regardless of prior scroll state. Reproduced the original bug (scroll to 1500px, reload) and confirmed it's gone.
+
+### Coming-soon catalog — expanded from 1 to 3 objects
+- Added **020 — The Murano weight** (Italy, hand-blown glass) and **021 — The Trondheim rya** (Norway, knotted textile), each with brand-voice teaser copy and an original gold-line SVG sketch in `SKETCHES`, matching 019's style.
+- **Fixed a real hard-rule violation found along the way:** SKU 019 ("The Damascus Pair") was `status:'coming-soon'` but had an undisclosed photo wired in via `image:` — no "Reference image" label renders for coming-soon items, and 019's own teaser says "we haven't found who folds it yet." Removed the `image` field so it falls back to the gold-line sketch that was already authored for it and just unused.
+
+### Explored and reverted: intro video
+- Owner provided a "clutter morphs into logo reveal" clip (`Videos/Clutter_morphs_into_logo_reveal_202606301845.mp4`, 8s, 1080p). Built and verified a full-bleed `100svh` section above the hero, autoplay/muted/once, with a `prefers-reduced-motion` fallback to native controls — it worked correctly in every check.
+- Reverted at the owner's request (`git checkout`) before committing. Open finding worth knowing if this comes back up: the video's own final frame already shows a "DOKU" wordmark + "Found. Not made." in the site's own type style, identical to what the hero displays immediately after it — the two reveals currently read as a duplicate, not a sequence.
+- The video file itself is still sitting in `Videos/`, just not wired into the page.
+
+### Brand domain research (no code)
+- Discussed domain options for launch. Short list favors meaning over decoration: `doku.one` (literalizes "1 of 1," doubles as a future community/membership name), `doku.estate` (matches the actual sourcing story — provenance copy already describes estate clearances), `doku.maison`, `doku.gallery`, `doku.living`. Ruled out `buydoku.com` (reads like a coupon site) and `isitdoku.com` (gimmicky). Not yet decided; availability unverified.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
@@ -159,10 +197,14 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 | `doku-site_9.html` | **Active** | All changes live here |
 | `CLAUDE.md` | Done | Project context for Claude sessions |
 | `design.md` | Updated | Living design system — updated this session |
+| `progress.md` | Updated | This file |
 | `images/` | Existing | Reference photos for SKUs 017 and 018 |
+| `Videos/` | Existing, unused | Logo-reveal clip — built and reverted this session, see Session 5 |
 | `.claude/launch.json` | Fixed | Serves from `/Applications/Repos/Repo/DOKU` |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
+
+**3 coming-soon objects** — 019, 020, 021. All three use gold-line SVG sketches, no undisclosed photos.
 
 **Live integrations:** Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics — confirmed active in Realtime dashboard).
 
@@ -171,12 +213,16 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 ## Next Steps
 
 ### Content
-- [ ] **Add more catalog items** — Extend the `PRODUCTS` array with new entries
-- [ ] **SVG sketches for 019+** — Coming-soon items need gold-line SVG sketches in the `SKETCHES` object
+- [x] **Add more catalog items** — 020, 021 added to coming-soon this session. Still open: more *available* (priced, in-stock) items.
+- [x] **SVG sketches for 019+** — done for 019, 020, 021. Repeat for any new coming-soon SKU.
 - [ ] **Real product photography** — Replace reference images with owned photos when available
 
+### Brand
+- [ ] **Pick the domain** — shortlist in Session 5 (`doku.one`, `doku.estate`, `doku.maison`, `doku.gallery`, `doku.living`); none verified available yet.
+- [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
+
 ### Infrastructure (before going live)
-- [ ] **Real backend + payment processor** — Checkout is currently a simulation. Needs Stripe or similar wired to an actual order endpoint.
+- [ ] **Real backend + payment processor** — Checkout is currently a simulation. Needs Stripe or similar wired to an actual order endpoint. (Scoped but paused — owner wants the domain finalized first.)
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
-- [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages).
+- [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages) once a domain is picked.
 - [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`). Pageviews, add-to-cart, form leads all tracked.

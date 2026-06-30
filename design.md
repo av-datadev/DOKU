@@ -71,6 +71,7 @@
 - Nothing bouncy. Nothing playful. Slow and deliberate only.
 - All motion disabled cleanly under `prefers-reduced-motion`.
 - Parallax (hero text drifts up at `0.28×` scroll speed, fades to 0 by 500px) — desktop only.
+- **`history.scrollRestoration = 'manual'` + forced `window.scrollTo(0,0)` runs first thing in the script.** Browsers restore scroll position on reload by default; since the hero's parallax fades `hero-inner` to `opacity:0` past 480px of scroll, a reload while scrolled down would otherwise paint the hero invisible before the user touches anything. Don't remove this.
 
 ---
 
@@ -90,13 +91,14 @@
 ### Hero
 - Full viewport (`100svh`). Dark background with grain texture and radial glow.
 - Staggered entrance: eyebrow → headline → rule → meta → CTA → scroll hint, each `250ms` offset.
-- Scroll hint: animated chevron at bottom center.
+- Scroll hint: thin gold SVG chevron at bottom center, no text label. Points down by default; flips 180° (`0.5s` ease) the instant scroll direction reverses — driven by a `scroll` listener diffing consecutive `window.scrollY` reads, independent of position.
 
 ### Product Detail
 - 2-column grid on desktop: `1.1fr 1fr`, `80px` gap.
 - Left column (frame/image): `position:sticky; top:88px; height:calc(100vh - 120px); max-height:820px`.
 - Right column (info): `padding-bottom:120px`.
 - Mobile (`max-width:900px`): single column, sticky unset, frame returns to `aspect-ratio:4/5`.
+- **Guardrail:** side padding comes from `.product`'s own class rule (48px desktop / 24px mobile) — never add an inline `padding-left/right:0` on the wrapper. Inline styles beat stylesheet rules at every breakpoint regardless of media query, and that exact mistake once pinned product-detail text to the mobile bezels.
 
 ---
 
@@ -130,6 +132,12 @@
 - Live filtering on title + origin + epitaph text. No debounce — immediate.
 - Hidden items: `opacity:0; transform:scale(0.97); pointer-events:none`.
 - Count and × clear button update in sync with results.
+
+### Home Carousel (Available Now)
+- Homepage-only — `/collection` and the item-detail "related" grid stay as plain `.grid`.
+- Fixed-width cards (`300px` desktop, `80vw` mobile) in a single row, `overflow-x:auto`. Real gaps (`28px` desktop / `18px` mobile) with each card individually bordered — not the touching-tile hairline-fill trick `.grid` uses elsewhere.
+- No `scroll-snap` — tried and reverted; it fought the wheel handler's programmatic `scrollLeft` increments and intermittently cancelled them.
+- The site's global wheel handler (for vertical parallax scroll) redirects into `carousel.scrollLeft` when the cursor is over `.carousel`, **and falls through to normal vertical scroll once the carousel hits either edge** — required, or the page gets stuck and the user has to move the mouse off the carousel to keep scrolling.
 
 ### Product Card
 - Background: `--bg-card`
@@ -220,12 +228,15 @@ Applied to all copy — not just marketing. Every label, error state, and form f
 | **Observation** | Name a pattern the reader hadn't noticed. |
 | **Restraint** | End the sentence before it over-explains. |
 
+**Positioning principle (added Session 5):** scarcity is a fact about the object, not the hook for the reader. The hook is resemblance — a DOKU object mirrors the kind of person who buys it (someone who's built or found something once, without a template, in their own life or work). Keep the scarcity facts (they're true and required by the hard rules below), but the emotional angle is identification, not FOMO.
+
 **Examples of the standard applied:**
 - "Hold this DOKU" — not "Add to cart"
-- "Never repeated." — not "This is a unique, one-of-a-kind item"
+- "Only one. So are you." — the hero headline; not "This is a unique, one-of-a-kind item"
 - "Found once. Then gone." — not "Limited availability"
 - "Closed. Not sold out." — the listing distinction on the provenance page
 - "Limited edition is a marketing term. We do not use it." — pull-quote, Chapter II
+- "If the paragraph above sounds like you, you already understand what we sell." — closing line, Provenance Chapter IV ("The Resemblance")
 
 ---
 
@@ -233,7 +244,7 @@ Applied to all copy — not just marketing. Every label, error state, and form f
 
 1. **No unlicensed images** — ever, even as placeholders. Undisclosed use of reference images is prohibited.
 2. **Reference images require disclosure** — `referenceImage: true` on any product triggers the "Reference image — not the actual piece" label automatically via `frame()`.
-3. **No real photography = gold vitrine frame or SVG sketch** — correct per brand.
+3. **No real photography = gold vitrine frame or SVG sketch** — correct per brand. `frame()` checks `p.image` before `SKETCHES[p.sku]`, so an `image` field set on a `coming-soon` product silently wins and shows an undisclosed photo with no label — this actually happened to SKU 019 and was fixed in Session 5. When authoring a `coming-soon` product, don't set `image` unless it's a properly licensed, disclosed reference photo.
 4. **No localStorage / sessionStorage** — cart is in-memory JS state by design.
 5. **Checkout is a simulation** — copy must never imply a real charge occurred.
 
