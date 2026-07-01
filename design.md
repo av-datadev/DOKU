@@ -133,6 +133,12 @@
 - Hidden items: `opacity:0; transform:scale(0.97); pointer-events:none`.
 - Count and × clear button update in sync with results.
 
+### Claimed Item Epitaphs
+- Every claimed item shows an `epitaph` line beneath its status badge (item page and archive).
+- Seeded archive items (003, 007, 009, 012) carry hand-written epitaphs using a consistent "epistemic distance" device — the object moves on, DOKU is deliberately not told the details ("We were not told the address," "We were not invited to watch").
+- Real purchases generate one at claim time via `pickEpitaph(p)` — picks randomly from the `GENERIC_EPITAPHS` pool (6 lines, same device; one interpolates the item's `origin`). Never falls back to a flat placeholder string.
+- **Guardrail:** don't reintroduce a static fallback like `p.epitaph || 'Claimed moments ago.'` — that line shipped on every real order until Session 6 and silently broke the archive's "ledger, not graveyard" premise for every real buyer.
+
 ### Home Carousel (Available Now)
 - Homepage-only — `/collection` and the item-detail "related" grid stay as plain `.grid`.
 - Fixed-width cards (`300px` desktop, `80vw` mobile) in a single row, `overflow-x:auto`. Real gaps (`28px` desktop / `18px` mobile) with each card individually bordered — not the touching-tile hairline-fill trick `.grid` uses elsewhere.
@@ -186,7 +192,7 @@
   - *Idle* — button label as written ("Send" / "Notify me")
   - *In flight* — button disabled, label becomes "Sending…"
   - *Success* — result line appears below form in `--muted`, `14px` Archivo; form resets
-  - *Error* — same result line position; message from Web3Forms API or generic fallback
+  - *Error* — same result line position; on-voice fallback copy, never generic SaaS boilerplate — "Didn't send. Try again." (server-reported failure — yields to `data.message` when Web3Forms returns one) or "Couldn't reach us. Try again in a moment." (network/fetch failure)
 - Botcheck honeypot (`<input type="checkbox" name="botcheck" style="display:none">`) present in both forms — invisible to users, required by Web3Forms spam filter.
 
 ### Checkout Progress
@@ -237,6 +243,8 @@ Applied to all copy — not just marketing. Every label, error state, and form f
 - "Closed. Not sold out." — the listing distinction on the provenance page
 - "Limited edition is a marketing term. We do not use it." — pull-quote, Chapter II
 - "If the paragraph above sounds like you, you already understand what we sell." — closing line, Provenance Chapter IV ("The Resemblance")
+- "It left Kyoto, Japan once, to reach us. Where it went next, we weren't told." — generated epitaph, real claim
+- "Didn't send. Try again." — form error state; not "Something went wrong. Please try again."
 
 ---
 

@@ -1903,14 +1903,27 @@ async function _submitForm(form, resultEl, successMsg){
         });
       }
     } else {
-      resultEl.textContent = data.message || 'Something went wrong. Please try again.';
+      resultEl.textContent = data.message || "Didn't send. Try again.";
     }
   } catch {
-    resultEl.textContent = 'Could not send. Check your connection and try again.';
+    resultEl.textContent = "Couldn't reach us. Try again in a moment.";
   } finally {
     btn.disabled = false;
     span.textContent = original;
   }
+}
+
+const GENERIC_EPITAPHS = [
+  "Gone quiet, the way the good ones go.",
+  "Held now by someone who didn't need to explain why.",
+  "No longer ours to describe. We stopped watching when it left.",
+  "It left {origin} once, to reach us. Where it went next, we weren't told.",
+  "Somewhere, not here. That's all we know, and all we asked.",
+  "Claimed without ceremony. That's how it should be."
+];
+function pickEpitaph(p){
+  const line = GENERIC_EPITAPHS[Math.floor(Math.random() * GENERIC_EPITAPHS.length)];
+  return line.replace('{origin}', p.origin || 'where we found it');
 }
 
 function bindForms(){
@@ -1925,7 +1938,7 @@ function bindForms(){
       submitBtn.disabled = true;
       if(submitSpan) submitSpan.textContent = 'Confirming…';
       setTimeout(() => {
-        items.forEach(p => { p.status = 'claimed'; p.epitaph = p.epitaph || 'Claimed moments ago.'; });
+        items.forEach(p => { p.status = 'claimed'; p.epitaph = p.epitaph || pickEpitaph(p); });
         lastOrder = {
           id: 'DOKU-' + Math.random().toString(36).slice(2,8).toUpperCase(),
           items, fullName: data.get('fullName')

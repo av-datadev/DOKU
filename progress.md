@@ -189,6 +189,17 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 6 — 2026-07-02
+
+### Delta 4 audit — copy fixes at the moments that matter most
+- Walked through Kunal Shah's Delta 4 framework (perceived improvement has to be dramatic, not incremental, to earn trust/premium/retention — and the delta has to be real, not staged) and mapped it against DOKU's trust, status, and presence vectors. Owner's takeaway: the framework itself doesn't need documenting here, but it surfaced two real gaps worth fixing.
+- Audited copy across the whole site. Almost everything already holds the six-trait voice standard. Found exactly two spots where it dropped to generic boilerplate — both at moments of friction, which is where trust is actually won or lost:
+  1. **Real claims got a placeholder epitaph, not a real one.** The seeded archive items (003, 007, 009, 012) have hand-written epitaphs with a specific "epistemic distance" device ("We were not told the address," "We were not invited to watch"). Every real checkout instead ran `p.epitaph = p.epitaph || 'Claimed moments ago.'` — one static, identical line for every SKU, every buyer, forever. Fixed: added a `GENERIC_EPITAPHS` pool (6 lines, same device, one interpolates the item's `origin`) and `pickEpitaph(p)`, picked randomly at claim time. Verified live — claiming N°014 through the real checkout form produced *"It left Kyoto, Japan once, to reach us. Where it went next, we weren't told,"* correctly displayed on the item page afterward.
+  2. **Form failure copy read as generic SaaS boilerplate.** `_submitForm()`'s success messages were already on-voice ("Message received. We read everything ourselves."), but its error paths were "Something went wrong. Please try again." and "Could not send. Check your connection and try again." Replaced with "Didn't send. Try again." (server-reported failure, still yields to `data.message` when Web3Forms returns one) and "Couldn't reach us. Try again in a moment." (network/catch failure). Verified via simulated fetch rejection.
+- Both changes are in `doku-site_9.html`, verified live in the browser preview (full checkout flow end-to-end, plus a simulated network failure).
+
+---
+
 ## Current State
 
 | File | Status | Notes |
