@@ -13,9 +13,13 @@ hash-based routing (`#/`, `#/collection`, `#/item/:sku`, `#/cart`,
 `#/checkout`, `#/confirmation`, `#/archive`, `#/provenance`, `#/inquire`,
 `#/privacy`). No build step, no framework. Cart and currency selection live
 in plain JS variables (in-memory only) — that's intentional, not a missing
-feature, see Hard rules. The catalog and orders now live in Supabase (see
-"Data model") — that's the real backend the site has; there is still no
-auth, no admin UI, and no payment processor.
+feature, see Hard rules. The catalog and orders live in Supabase (see
+"Data model"), and there's a separate authenticated admin page
+(`admin.html`, see "Admin") for managing them — that's the real backend the
+site has. Still no payment processor. NOTE: the in-memory / no-storage rule
+(Hard rule 3) applies to the public SPA only, NOT to `admin.html`, which is
+a distinct authenticated page and deliberately uses Supabase's default
+localStorage session — see Admin.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -100,6 +104,31 @@ Set `reference_image: true` alongside a photo that isn't the actual DOKU
 piece — `frame()` renders the "Reference image — not the actual piece"
 disclosure for it. See Hard rule 1 — this is not optional.
 
+## Admin — `admin.html`
+A **separate, standalone page** (not part of the public SPA, not linked from
+it) for managing the catalog and viewing orders. Kept separate on purpose:
+it needs a persistent auth session, which means Supabase's default
+`localStorage` — allowed here precisely because it is NOT the public
+never-reloading SPA that Hard rule 3 was written for. Do not fold this into
+`doku-site_9.html`.
+- **Auth:** Supabase Auth (email/password), single admin account. Write
+  access is gated on the `admins` allowlist table via the `is_admin()`
+  SECURITY DEFINER helper — being merely `authenticated` is NOT enough, so
+  leaving public signups on can't grant a stranger access. The login flow
+  also re-checks `is_admin()` and signs out non-admins.
+- **What it does:** create / edit / delete products (all fields, incl.
+  `story`/`specs`/`image`), promote a `reserved` item to `claimed` with a
+  hand-written epitaph (the manual step Session 8 left open), and read
+  orders with buyer details. All via the same anon key as the public site —
+  RLS is what distinguishes them, never a secret in the file.
+- **Access:** open `admin.html` directly (any static host, or locally). It
+  carries `noindex,nofollow` and is not discoverable from the main site.
+  There is no server-side gate beyond Supabase auth — anyone who loads the
+  file still hits the login wall, and the anon key alone grants no write/
+  order access without an admin session.
+- Schema (the `admins` table, `is_admin()`, and the admin RLS policies) is
+  in `supabase/schema.sql`.
+
 ## Data & privacy — actual current behavior
 - **No `localStorage`/`sessionStorage` anywhere** — cart, currency, and
   consent state are in-memory JS only. See Hard rule 3.
@@ -126,8 +155,8 @@ disclosure for it. See Hard rule 1 — this is not optional.
 - Checkout needs a real payment processor before going live — orders
   persist now, but `place_order()` never verifies a charge happened
 - Currency conversion rates are hardcoded/indicative, not a live feed
-- No admin UI for the catalog or for promoting `reserved` → `claimed` —
-  both go through the Supabase dashboard by hand
-- No auth, no user accounts — anyone can view any order confirmation page
-  within their own session, but nobody can list/read other buyers' orders
-  (see Data model — RLS denies that)
+- No *customer* accounts — buyers still check out as guests (by design).
+  Admin auth exists (see Admin), but shoppers have no login.
+- Leaked-password protection (HaveIBeenPwned check) is off in Supabase Auth
+  — a one-click dashboard toggle worth enabling now that there's a real
+  admin login

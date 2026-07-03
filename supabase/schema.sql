@@ -110,3 +110,37 @@ $$;
 
 revoke all on function place_order(text[], text, text, text, text, text, text, text) from public;
 grant execute on function place_order(text[], text, text, text, text, text, text, text) to anon;
+
+-- ── ADMIN (admin.html) ──────────────────────────────────────────────
+-- Allowlist of admin user IDs. Write access to the catalog and read access
+-- to orders is gated on membership HERE, not on merely being 'authenticated'
+-- — so public signups (if ever enabled) can never grant a random account
+-- access. To add an admin: create the user in Supabase Auth, then insert
+-- their auth.users.id into this table. (The first admin account was created
+-- via a one-time seed in the admin_auth_and_write_policies migration; it is
+-- deliberately NOT reproduced here, since this file carries no credentials.)
+create table if not exists admins (
+  id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table admins enable row level security;
+-- No policies on admins: deny all direct API access. Membership is only ever
+-- read through is_admin() below, which is SECURITY DEFINER.
+
+create or replace function is_admin() returns boolean
+language sql security definer stable set search_path = public
+as $$ select exists (select 1 from admins where id = auth.uid()); $$;
+revoke all on function is_admin() from public;
+grant execute on function is_admin() to authenticated;  -- not anon
+
+-- Catalog writes: admins only. anon stays read-only (Public read access).
+create policy "Admins insert products" on products
+  for insert to authenticated with check (is_admin());
+create policy "Admins update products" on products
+  for update to authenticated using (is_admin()) with check (is_admin());
+create policy "Admins delete products" on products
+  for delete to authenticated using (is_admin());
+
+-- Orders hold buyer PII: admins can read, anon never can (no anon policy).
+create policy "Admins read orders" on orders
+  for select to authenticated using (is_admin());

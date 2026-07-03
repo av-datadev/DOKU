@@ -231,16 +231,31 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 9 — 2026-07-04
+
+### Admin UI — separate authenticated page (`admin.html`)
+**Requirements walked through first:** auth (nothing on the site had a login), a scoped write path (products had zero write policies, orders denied all access), and a real collision with Hard Rule 3 — Supabase Auth persists sessions in `localStorage`, which the public SPA forbids. Owner's call: **build it as a separate page + Supabase Auth**, which sidesteps the storage conflict cleanly — Hard Rule 3 was written for the public never-reloading SPA, not a distinct authenticated admin surface.
+- **New `admins` allowlist table + `is_admin()` SECURITY DEFINER helper.** Write access to `products` and read access to `orders` are gated on *allowlist membership*, not on merely being `authenticated` — so even if public signups are left on, a random new account gets zero access. `admins` itself has RLS with no policies (deny-all direct access); membership is only ever read through `is_admin()`, which bypasses that. `is_admin()` execute revoked from `anon` (only the logged-in admin page calls it).
+- **RLS policies added:** admins can insert/update/delete `products` and select `orders`. The public site (`anon`) stays exactly as it was — read-only catalog, no order access, checkout only via `place_order()`.
+- **Single admin account created** (email `apoorvverma0396@gmail.com`) via a one-time SQL seed with a **temporary password** — the admin page has a "Change password" action; rotate on first login. No credentials live in any committed file.
+- **`admin.html`** — standalone, on-brand (same palette/type as the site, lighter on animation), `noindex,nofollow`, not linked from the public site. Login wall → three tabs: **Catalog** (create / edit / delete every product field incl. story/specs/image, and the `reserved`→`claimed`-with-epitaph promotion Session 8 left manual), **Orders** (buyer details, grouped by order code), **Account** (change password, sign out). Uses the same public anon key as the main site — RLS is the only thing separating admin from public, never a secret in the file.
+- **Verified live, full loop:** logged in with the temp password → dashboard loaded all 12 products → edited a product through the UI and confirmed it persisted to Supabase → promoted a product to `claimed` with an epitaph and confirmed → **confirmed an anonymous client cannot write products (0 rows, RLS-blocked), cannot read orders, and gets `is_admin()=false`** → restored the test product to its exact original state afterward.
+- **Security advisor:** remaining lints are all expected/benign (the deliberate `admins` deny-all RLS; the known public `place_order`/managed `rls_auto_enable` functions). One worth acting on: **leaked-password protection is off** in Supabase Auth — a one-click dashboard toggle, more relevant now that a real admin login exists.
+- `supabase/schema.sql` updated with the admins table, `is_admin()`, and admin policies. Applied live via migrations `admin_auth_and_write_policies` + `restrict_is_admin_to_authenticated`.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
 |---|---|---|
 | `doku-site_8.html` | Baseline | Original version, kept intact |
-| `doku-site_9.html` | **Active** | All changes live here |
-| `CLAUDE.md` | Updated | Data model documents Supabase catalog + orders/reserve flow |
+| `doku-site_9.html` | **Active** | Public site — all shopper-facing changes live here |
+| `admin.html` | **New** | Authenticated admin page — catalog + orders management |
+| `CLAUDE.md` | Updated | Now documents the admin page + auth model |
 | `design.md` | Updated | Living design system |
 | `progress.md` | Updated | This file |
-| `supabase/schema.sql` | Updated | Current-state schema: `products`, `orders`, `place_order()` |
+| `supabase/schema.sql` | Updated | products, orders, place_order(), admins, is_admin(), admin policies |
 | `supabase/seed.sql` | Existing | One-time catalog migration (already applied) |
 | `images/` | Existing | Reference photos for SKUs 017 and 018 (also now in Supabase) |
 | `Videos/` | Existing, unused | Logo-reveal clip — built and reverted Session 5 |
@@ -270,7 +285,9 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
 - [ ] **Real payment processor** — `place_order()` never verifies a charge happened; this is still the honest gap before real money can be involved. Needs Stripe or similar wired in, at which point a successful charge is what should trigger `place_order()` (or a variant of it) rather than a bare form submit.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
-- [ ] **Admin UI** — Catalog edits and order confirmation both currently go through the Supabase dashboard directly; a lightweight authenticated admin page would remove the last reason to touch raw SQL/table UI for day-to-day changes.
+- [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.
+- [x] **Promote-to-claimed workflow** — now a first-class action in `admin.html` (was a manual Supabase dashboard edit). Still a human decision, but no longer raw SQL.
+- [ ] **Enable leaked-password protection** — one-click Supabase Auth toggle, flagged by the advisor in Session 9.
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
 - [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages) once a domain is picked.
 - [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the privacy bar. New `reserve_order` event fires on a successful checkout.
