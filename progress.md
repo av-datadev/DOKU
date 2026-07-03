@@ -279,6 +279,7 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 ### Brand
 - [ ] **Pick the domain** — shortlist in Session 5 (`doku.one`, `doku.estate`, `doku.maison`, `doku.gallery`, `doku.living`); none verified available yet.
 - [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
+- [ ] **Domain-based admin account** — once the domain is picked, add a domain admin (e.g. `admin@discoverdoku.com`) alongside (or replacing) the current Gmail admin. Two steps: (1) create the user in Supabase Auth (dashboard → Authentication → Users → Add user, auto-confirm on) and (2) **insert their `auth.users.id` into the `admins` allowlist** — step 2 is what actually grants access; the RLS policies check `admins` membership, not just "is authenticated." The account email is only a login label — it does *not* need to be a real, deliverable mailbox for password login. It only needs a working inbox (via Google Workspace / an SMTP provider) if you want password-reset / magic-link emails to reach it; decide that before creating it, since it's what determines whether SMTP setup is worth doing. The `admins` table supports multiple rows, so old and new admins can coexist.
 
 ### Infrastructure (before going live)
 - [x] **Product catalog database** — Live in Supabase as of Session 7.
