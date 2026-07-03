@@ -215,17 +215,33 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 8 — 2026-07-04
+
+### Order persistence — checkout now reserves for real, catalog-wide
+**Decision point:** persisting orders meant deciding what a completed (simulated) checkout should actually do to the shared catalog — previously "claimed" only lived in one browser tab, so two visitors could both "buy" the same one-of-one object and neither would know. Owner chose **reserve, not claim**: checkout immediately and atomically pulls the item from "available" for everyone, but doesn't show it as a genuine sold/claimed piece with an epitaph — that's a deliberate manual step from the Supabase dashboard once payment is actually confirmed out-of-band. Keeps Hard rule 4 ("never imply a real charge happened") literally true.
+- New `orders` table in Supabase — `sku`, `title`, `price`, `currency`, `full_name`, `email`, `address`, `city`, `postcode`, `country`, `order_code`, `created_at`. RLS enabled with **zero policies**, so `anon`/`authenticated` cannot read, insert, or update it directly under any circumstance — the table holds buyer PII and nothing in the browser should ever be able to list or scrape it.
+- New Postgres function `place_order(p_skus, p_full_name, p_email, p_address, p_city, p_postcode, p_country, p_currency)`, `SECURITY DEFINER`, callable by `anon` via RPC. In one transaction: locks every item in the cart, verifies each is still `'available'` (all-or-nothing — if any item was taken first, nothing changes), flips them to a new `'reserved'` status, and writes one order row per item under a shared `order_code`. This is the *only* way `products` or `orders` can be mutated from the client — no raw table `UPDATE`/`INSERT` policy exists for either.
+- `products.status` check constraint extended to allow `'reserved'`.
+- `doku-site_9.html`: checkout form's submit handler now calls `_supabase.rpc('place_order', …)` instead of mutating `PRODUCTS` locally. Added `checkValidity()`/`reportValidity()` before submit (was missing — every other form on the site already had this). On success, shows the real `order_code` from Postgres (previously a client-generated random string) and fires a new `reserve_order` GA4 event (not `purchase` — that event name carries revenue-recognition semantics GA4 assumes are real, which this isn't yet). On failure (item taken by someone else, or Supabase unreachable), shows an on-brand inline error instead of silently "succeeding" — this used to always succeed locally with a `setTimeout`, which was a lie waiting to happen once state was shared.
+- `viewProduct()` and `frame()` now handle `'reserved'` as its own state — "Held — pending confirmation" / "This DOKU is spoken for. We're finishing the details," not the "Claimed" copy (which now only shows for the real, manually-promoted `'claimed'` status).
+- Confirmation page copy changed from "It's yours now" (overstated — implies a completed sale) to "Held. Only for you." — accurate to what actually happened.
+- `GENERIC_EPITAPHS`/`pickEpitaph()` (Session 6) are no longer called automatically at checkout, since claiming is now a deliberate manual step. Left in place as a starting point for writing the real epitaph when you promote a `reserved` row to `claimed`.
+- **Verified live, full loop:** ran an actual checkout through the browser UI (SKU 015, fake buyer) → confirmed the order row landed in Supabase with correct buyer/item/price data and the product flipped to `reserved` → confirmed a second `place_order` call for the same SKU was rejected server-side ("Item 015 is no longer available") → confirmed `anon` cannot `SELECT` the `orders` table at all (empty result, no error — RLS silently denies) → cleaned up the test order and reset SKU 015 back to `available` afterward so the real catalog wasn't left in a test state.
+- `supabase/schema.sql` updated to the current-state schema (products + orders + `place_order()`); applied to the live project via migration `orders_and_reserve_flow`.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
 |---|---|---|
 | `doku-site_8.html` | Baseline | Original version, kept intact |
 | `doku-site_9.html` | **Active** | All changes live here |
-| `CLAUDE.md` | Updated | Data model section now documents Supabase |
+| `CLAUDE.md` | Updated | Data model documents Supabase catalog + orders/reserve flow |
 | `design.md` | Updated | Living design system |
 | `progress.md` | Updated | This file |
-| `supabase/schema.sql` | New | `products` table definition + RLS policy |
-| `supabase/seed.sql` | New | One-time migration — schema + all 12 products |
+| `supabase/schema.sql` | Updated | Current-state schema: `products`, `orders`, `place_order()` |
+| `supabase/seed.sql` | Existing | One-time catalog migration (already applied) |
 | `images/` | Existing | Reference photos for SKUs 017 and 018 (also now in Supabase) |
 | `Videos/` | Existing, unused | Logo-reveal clip — built and reverted Session 5 |
 | `.claude/launch.json` | Fixed | Serves from `/Applications/Repos/Repo/DOKU` |
@@ -234,7 +250,7 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 **3 coming-soon objects** — 019, 020, 021. All three use gold-line SVG sketches, no undisclosed photos.
 
-**Live integrations:** Supabase (product catalog), Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics, consent-gated).
+**Live integrations:** Supabase (product catalog + order persistence), Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics, consent-gated).
 
 ---
 
@@ -250,10 +266,11 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
 
 ### Infrastructure (before going live)
-- [x] **Product catalog database** — Live in Supabase as of this session. See Session 7.
-- [ ] **Real backend + payment processor** — Checkout is currently a simulation. Needs Stripe or similar wired to an actual order endpoint. (Scoped but paused — owner wants the domain finalized first.)
-- [ ] **Order persistence** — No order ever gets a durable record; "claimed" status is client-side only until this is built (natural next Supabase table once payments are real).
-- [ ] **Admin UI** — Catalog edits currently go through the Supabase dashboard directly; a lightweight authenticated admin page would remove the last reason to touch raw SQL/table UI for day-to-day changes.
+- [x] **Product catalog database** — Live in Supabase as of Session 7.
+- [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
+- [ ] **Real payment processor** — `place_order()` never verifies a charge happened; this is still the honest gap before real money can be involved. Needs Stripe or similar wired in, at which point a successful charge is what should trigger `place_order()` (or a variant of it) rather than a bare form submit.
+- [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
+- [ ] **Admin UI** — Catalog edits and order confirmation both currently go through the Supabase dashboard directly; a lightweight authenticated admin page would remove the last reason to touch raw SQL/table UI for day-to-day changes.
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
 - [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages) once a domain is picked.
-- [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the new privacy bar.
+- [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the privacy bar. New `reserve_order` event fires on a successful checkout.

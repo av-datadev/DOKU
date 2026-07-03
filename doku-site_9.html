@@ -1492,12 +1492,14 @@ function viewProduct(sku){
   if(!p) return view404();
   const isAvailable = p.status === 'available';
   const isComingSoon = p.status === 'coming-soon';
+  const isReserved = p.status === 'reserved';
   const inCart = cart.includes(sku);
 
   const related = PRODUCTS.filter(x => x.status === 'available' && x.sku !== sku).slice(0,3);
 
   const statusLabel = isAvailable ? '1 of 1 — Available'
     : isComingSoon ? 'Direction confirmed — object pending'
+    : isReserved ? 'Held — pending confirmation'
     : 'Claimed — no longer available';
 
   const originLine = isComingSoon
@@ -1531,6 +1533,15 @@ function viewProduct(sku){
         <button class="btn-gold" type="submit" data-cursor="Notify"><span>Notify me</span></button>
       </form>
       <div id="notify-result" class="claim-sub reveal" style="margin-top:14px;"></div>
+    `;
+  } else if(isReserved){
+    mainBlock = `
+      <div class="price-row reveal">
+        <span class="price serif" style="color:var(--claimed);">Held</span>
+        <span class="price-note">Pending confirmation</span>
+      </div>
+      <button class="btn-ghost reveal" disabled>This DOKU is spoken for</button>
+      <div class="claim-sub reveal">Someone has claimed this. We're finishing the details on our end.</div>
     `;
   } else {
     mainBlock = `
@@ -1668,6 +1679,7 @@ function viewCheckout(){
         </fieldset>
         <p class="fine-print">This is a front-end simulation. No real charge will be made. No card data is stored or transmitted.</p>
         <button class="btn-gold" type="submit" id="checkout-submit" data-cursor="Confirm" style="margin-top:32px;"><span>Confirm the claim</span></button>
+        <div id="checkout-result" class="claim-sub reveal" style="margin-top:14px;"></div>
       </form>
     </div>
   `;
@@ -1681,8 +1693,8 @@ function viewConfirmation(){
   return `
     <div class="narrow confirm-wrap">
       <div class="confirm-seal"><span class="serif" style="color:var(--gold); font-size:16px;">✓</span></div>
-      <h1 class="serif reveal">It's yours now.</h1>
-      <p class="reveal" style="color:var(--muted); font-size:15px; line-height:1.8;">${fullName ? escapeHtml(fullName) + ', ' : ''}no one else will ever own these exact objects.</p>
+      <h1 class="serif reveal">Held. Only for you.</h1>
+      <p class="reveal" style="color:var(--muted); font-size:15px; line-height:1.8;">${fullName ? escapeHtml(fullName) + ', ' : ''}no one else can claim these while we finish the details on our end.</p>
       <div class="order-id reveal">Order ${escapeHtml(id)}</div>
       <div class="confirm-list reveal">${items.map(p => cartRow(p, false)).join('')}</div>
       <a href="#/" class="btn-gold reveal" style="display:block; text-align:center; text-decoration:none;"><span>Return to DOKU</span></a>
@@ -2016,6 +2028,9 @@ async function _submitForm(form, resultEl, successMsg){
   }
 }
 
+// Checkout now reserves rather than claims (see place_order() in Supabase) —
+// nothing here calls pickEpitaph automatically. Use it as a starting point
+// when you manually promote a 'reserved' row to 'claimed' in Supabase.
 const GENERIC_EPITAPHS = [
   "Gone quiet, the way the good ones go.",
   "Held now by someone who didn't need to explain why.",
@@ -2032,22 +2047,49 @@ function pickEpitaph(p){
 function bindForms(){
   const co = document.getElementById('checkout-form');
   if(co){
-    co.addEventListener('submit', (e) => {
+    co.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if(!co.checkValidity()){ co.reportValidity(); return; }
       const data = new FormData(co);
       const items = cartProducts();
       const submitBtn = document.getElementById('checkout-submit');
       const submitSpan = submitBtn.querySelector('span');
+      const resultEl = document.getElementById('checkout-result');
       submitBtn.disabled = true;
       if(submitSpan) submitSpan.textContent = 'Confirming…';
-      setTimeout(() => {
-        items.forEach(p => { p.status = 'claimed'; p.epitaph = p.epitaph || pickEpitaph(p); });
-        lastOrder = {
-          id: 'DOKU-' + Math.random().toString(36).slice(2,8).toUpperCase(),
-          items, fullName: data.get('fullName')
-        };
+      if(resultEl) resultEl.textContent = '';
+      try {
+        if(!_supabase) throw new Error('offline');
+        const { data: orderCode, error } = await _supabase.rpc('place_order', {
+          p_skus: items.map(p => p.sku),
+          p_full_name: data.get('fullName'),
+          p_email: data.get('email'),
+          p_address: data.get('address'),
+          p_city: data.get('city'),
+          p_postcode: data.get('postcode'),
+          p_country: data.get('country'),
+          p_currency: currentCurrency
+        });
+        if(error) throw error;
+        items.forEach(p => { p.status = 'reserved'; });
+        lastOrder = { id: orderCode, items, fullName: data.get('fullName') };
+        if(typeof gtag !== 'undefined'){
+          gtag('event', 'reserve_order', {
+            transaction_id: orderCode,
+            value: items.reduce((s,p) => s + (p.price||0), 0),
+            currency: 'USD',
+            items: items.map(p => ({ item_id: p.sku, item_name: p.title, price: p.price }))
+          });
+        }
         cart = []; updateCartBadge(); location.hash = '#/confirmation';
-      }, 800);
+      } catch(err) {
+        const msg = (err && err.message) || '';
+        if(resultEl) resultEl.textContent = msg.includes('no longer available')
+          ? 'One of these was claimed by someone else first. Return to your cart and try again.'
+          : "Couldn't confirm the claim. Try again in a moment.";
+        submitBtn.disabled = false;
+        if(submitSpan) submitSpan.textContent = 'Confirm the claim';
+      }
     });
   }
 

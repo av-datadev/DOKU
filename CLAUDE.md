@@ -13,9 +13,9 @@ hash-based routing (`#/`, `#/collection`, `#/item/:sku`, `#/cart`,
 `#/checkout`, `#/confirmation`, `#/archive`, `#/provenance`, `#/inquire`,
 `#/privacy`). No build step, no framework. Cart and currency selection live
 in plain JS variables (in-memory only) — that's intentional, not a missing
-feature, see Hard rules. The catalog itself now lives in Supabase (see
-"Data model") — that's the one piece of real backend the site has; there is
-still no auth, no order persistence, and no payment processor.
+feature, see Hard rules. The catalog and orders now live in Supabase (see
+"Data model") — that's the real backend the site has; there is still no
+auth, no admin UI, and no payment processor.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -59,9 +59,31 @@ DOKU" for exactly this reason).
 ## Data model
 Catalog data lives in a Supabase Postgres table, `public.products`
 (project `mudyipmizlvihcldzrvh`, schema in `supabase/schema.sql`). Fields:
-`sku`, `title`, `status` (`'available'` | `'coming-soon'` | `'claimed'`),
-`price`, `story` (jsonb array), `specs` (jsonb object), `origin`, `year`,
-`teaser`, `epitaph`, `image`, `reference_image` (bool), `sort_order`.
+`sku`, `title`, `status` (`'available'` | `'coming-soon'` | `'claimed'` |
+`'reserved'`), `price`, `story` (jsonb array), `specs` (jsonb object),
+`origin`, `year`, `teaser`, `epitaph`, `image`, `reference_image` (bool),
+`sort_order`.
+
+**Checkout reserves, it does not claim.** Submitting the checkout form calls
+the Postgres RPC `place_order(p_skus, p_full_name, p_email, p_address,
+p_city, p_postcode, p_country, p_currency)` — a `SECURITY DEFINER` function
+that, in one transaction: locks every item in the cart, verifies each is
+still `'available'` (all-or-nothing — if any item was taken first, nothing
+changes and the client shows an error), flips them to `'reserved'`, and
+writes one row per item into `public.orders` under a shared `order_code`.
+`'reserved'` means "someone completed the front-end simulation" — it is
+**not** a verified sale (see Hard rule 4). Promote a reserved item to
+`'claimed'` (and write a real epitaph) from the Supabase dashboard yourself
+once you've actually confirmed/received payment out-of-band.
+
+Neither `anon` nor `authenticated` can read, insert, or update `orders`
+directly — RLS is enabled with zero policies (deny-all). The only way in is
+through `place_order()`, which bypasses RLS because it's `SECURITY
+DEFINER`. This is deliberate: `orders` holds buyer name/email/address, and
+nothing in the browser should ever be able to list or scrape it. Likewise
+`products` has no public write policy — `anon` can only mutate a row via
+`place_order()`, never with a raw `UPDATE`. Schema + function are both in
+`supabase/schema.sql`.
 
 On load, `<script>` fetches from Supabase (`_productsReady`, 2.5s timeout)
 into `PRODUCTS`. If the fetch fails or times out, `PRODUCTS` stays on
@@ -101,8 +123,11 @@ disclosure for it. See Hard rule 1 — this is not optional.
 
 ## Known gaps / likely next steps
 - No real product photography yet — placeholders and sketches throughout
-- Checkout needs a real backend + payment processor before going live
+- Checkout needs a real payment processor before going live — orders
+  persist now, but `place_order()` never verifies a charge happened
 - Currency conversion rates are hardcoded/indicative, not a live feed
-- No admin UI for the catalog — edits go through the Supabase dashboard
-- No auth, no user accounts, no order persistence — Supabase currently
-  backs the catalog only, not orders
+- No admin UI for the catalog or for promoting `reserved` → `claimed` —
+  both go through the Supabase dashboard by hand
+- No auth, no user accounts — anyone can view any order confirmation page
+  within their own session, but nobody can list/read other buyers' orders
+  (see Data model — RLS denies that)
