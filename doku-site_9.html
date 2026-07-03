@@ -6,13 +6,22 @@
 <meta name="description" content="DOKU — a marketplace for objects that exist exactly once. Handpicked. Found once. Never repeated.">
 <meta name="theme-color" content="#0E0C0A">
 <title>DOKU — One of one</title>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-S1MKLYC4QS"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-S1MKLYC4QS', { send_page_view: false });
+  const GA_ID = 'G-S1MKLYC4QS';
+  function loadAnalytics(){
+    if(window._gaLoaded) return;
+    window._gaLoaded = true;
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+    gtag('js', new Date());
+    gtag('config', GA_ID, { send_page_view: false });
+  }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,200;1,9..144,300;1,9..144,400&family=Archivo:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -760,6 +769,29 @@
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:all; }
   #toast a{ color:var(--gold); }
 
+  /* ── CONSENT ── */
+  .consent-bar{
+    position:fixed; bottom:0; left:0; right:0; z-index:9000;
+    background:var(--bg-card); border-top:1px solid var(--hairline);
+    padding:20px 48px; display:flex; justify-content:space-between; align-items:center; gap:24px;
+    flex-wrap:wrap; transform:translateY(110%); transition:transform .5s var(--ease);
+  }
+  .consent-bar.show{ transform:translateY(0); }
+  .consent-bar p{ font-size:13px; color:var(--muted); line-height:1.6; max-width:640px; margin:0; }
+  .consent-bar p a{ color:var(--gold); text-decoration:none; border-bottom:1px solid var(--gold); }
+  .consent-actions{ display:flex; gap:14px; flex-shrink:0; }
+  .consent-btn{
+    padding:12px 24px; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer;
+    background:transparent; white-space:nowrap; transition:border-color .3s, color .3s, background .3s;
+  }
+  .consent-btn-accept{ border:1px solid var(--gold); color:var(--gold); }
+  .consent-btn-accept:hover{ background:var(--gold); color:var(--bg); }
+  .consent-btn-decline{ border:1px solid var(--hairline); color:var(--claimed); }
+  .consent-btn-decline:hover{ border-color:var(--claimed); color:var(--ivory); }
+  @media (max-width:640px){
+    .consent-bar{ padding:20px 24px; flex-direction:column; align-items:flex-start; }
+  }
+
   /* ── MISC ── */
   .vision-chapter{
     min-height:80vh; display:flex; flex-direction:column; align-items:center;
@@ -937,10 +969,19 @@
       <a href="#/archive">Archive</a>
       <a href="#/provenance">Provenance</a>
       <a href="#/inquire">Inquire</a>
+      <a href="#/privacy">Privacy</a>
     </nav>
   </footer>
 
   <div id="toast"></div>
+
+  <div id="consent-bar" class="consent-bar">
+    <p>We track visits, lightly — only once you say yes. Messages you send us route through a delivery service, not a database we query. <a href="#/privacy">Read the details</a>.</p>
+    <div class="consent-actions">
+      <button id="consent-decline" class="consent-btn consent-btn-decline" type="button">Decline</button>
+      <button id="consent-accept" class="consent-btn consent-btn-accept" type="button">Accept</button>
+    </div>
+  </div>
 
 <script>
 /* Always start at the top of the page. Without this, the browser can restore
@@ -953,7 +994,10 @@ window.scrollTo(0, 0);
 /* ---------------------------------------------------------
    DATA
 --------------------------------------------------------- */
-const PRODUCTS = [
+// Fallback catalog — used if the Supabase fetch fails or times out.
+// Source of truth is the `products` table now; keep this in sync manually
+// if you edit the catalog directly in Supabase.
+const FALLBACK_PRODUCTS = [
   {
     sku:'014', title:'The Kyoto lacquer box', origin:'Kyoto, Japan', year:'2026',
     price:1840, status:'available',
@@ -1011,6 +1055,38 @@ const PRODUCTS = [
   { sku:'020', title:'The Murano weight', status:'coming-soon', teaser:"A blue mixed once, by hand, from a formula never written down — the furnace that made it has been cold for six years. We know the color exists somewhere on a shelf. We haven't found the shelf yet." },
   { sku:'021', title:'The Trondheim rya', status:'coming-soon', teaser:"A knot tied at a density no loom has matched since the workshop closed — dense enough that the back of the textile looks woven, not knotted. We've traced two of these into private collections. Neither owner will sell. We're still looking for a third." }
 ];
+
+/* ---------------------------------------------------------
+   PRODUCTS — live from Supabase, FALLBACK_PRODUCTS on failure
+--------------------------------------------------------- */
+const SUPABASE_URL = 'https://mudyipmizlvihcldzrvh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11ZHlpcG1pemx2aWhjbGR6cnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTA3NjEsImV4cCI6MjA5ODY2Njc2MX0.HXiBras1oUQfYuRnjSt3gde8Y5Jl0kSECnGfkd68f2Y';
+const _supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+let PRODUCTS = FALLBACK_PRODUCTS;
+
+// Kick off live-catalog fetch immediately so it's ready before first render
+const _productsReady = (async () => {
+  if(!_supabase) return; // CDN blocked/offline — stay on fallback
+  try {
+    const ctl = new AbortController();
+    const tid = setTimeout(() => ctl.abort(), 2500);
+    const { data, error } = await _supabase
+      .from('products')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .abortSignal(ctl.signal);
+    clearTimeout(tid);
+    if(error || !data || !data.length) return; // keep hardcoded fallback
+    PRODUCTS = data.map(row => ({
+      sku: row.sku, title: row.title, origin: row.origin, year: row.year,
+      price: row.price != null ? Number(row.price) : null, status: row.status,
+      story: row.story, specs: row.specs,
+      teaser: row.teaser, epitaph: row.epitaph, image: row.image,
+      referenceImage: row.reference_image
+    }));
+  } catch { /* keep hardcoded fallback */ }
+})();
 
 const SKETCHES = {
   '017': `<svg viewBox="0 0 160 200" xmlns="http://www.w3.org/2000/svg">
@@ -1451,6 +1527,7 @@ function viewProduct(sku){
         <input type="hidden" name="sku" value="${p.sku}">
         <input type="hidden" name="item" value="${p.title}">
         <div class="form-group"><label for="notify-email">Notify me when it's found</label><input id="notify-email" name="email" type="email" required placeholder="you@email.com"></div>
+        <p class="fine-print">Sent via a third-party delivery service. See <a href="#/privacy" style="color:var(--gold);">Privacy</a>.</p>
         <button class="btn-gold" type="submit" data-cursor="Notify"><span>Notify me</span></button>
       </form>
       <div id="notify-result" class="claim-sub reveal" style="margin-top:14px;"></div>
@@ -1725,9 +1802,34 @@ function viewInquire(){
         <div class="form-group"><label for="iq-name">Name</label><input id="iq-name" name="name" required autocomplete="name"></div>
         <div class="form-group"><label for="iq-email">Email</label><input id="iq-email" name="email" type="email" required autocomplete="email"></div>
         <div class="form-group"><label for="iq-message">What are you looking for?</label><textarea id="iq-message" name="message" required></textarea></div>
+        <p class="fine-print">Sent via a third-party delivery service. See <a href="#/privacy" style="color:var(--gold);">Privacy</a>.</p>
         <button class="btn-gold" type="submit" data-cursor="Send"><span>Send</span></button>
       </form>
       <div id="inquire-result" style="margin-top:26px; color:var(--muted); font-size:14px;"></div>
+    </div>
+  `;
+}
+
+function viewPrivacy(){
+  return `
+    <div class="narrow">
+      <div class="page-head reveal">
+        <div class="eyebrow">The short version</div>
+        <h1 class="serif">Privacy</h1>
+        <p>We collect less than most retailers. Here's the whole list, and where each thing goes.</p>
+      </div>
+
+      <div class="specs reveal" style="margin-bottom:40px;">
+        <div class="spec-row"><span>Name &amp; email, if you use Inquire or Notify me</span><span>Sent to Web3Forms, our form-delivery provider. Read once, then it sits in an inbox — not a database we query.</span></div>
+        <div class="spec-row"><span>Pages viewed, items held, forms sent</span><span>Google Analytics — only if you accept the banner. Decline, and none of it leaves your browser.</span></div>
+        <div class="spec-row"><span>Shipping &amp; card fields at checkout</span><span>Nowhere. Checkout is a simulation; those fields are never transmitted or stored.</span></div>
+        <div class="spec-row"><span>Cart, currency, filters</span><span>Held in your browser's memory only. Close the tab and it's gone — no cookies, nothing written to your device.</span></div>
+      </div>
+
+      <div class="story-block reveal">
+        <p>We don't sell data. We don't have enough of it to, and wouldn't if we did — DOKU runs on objects, not on knowing more about you than you told us.</p>
+        <p>If a question isn't answered here, ask it directly — the <a href="#/inquire" style="color:var(--gold); text-decoration:none; border-bottom:1px solid var(--gold);">Inquire</a> page reaches a person, not a form processor.</p>
+      </div>
     </div>
   `;
 }
@@ -1745,6 +1847,7 @@ const ROUTES = {
   'archive': () => viewArchive(),
   'provenance': () => viewProvenance(),
   'inquire': () => viewInquire(),
+  'privacy': () => viewPrivacy(),
   'cart': () => viewCart(),
   'checkout': () => viewCheckout(),
   'confirmation': () => viewConfirmation(),
@@ -1852,7 +1955,7 @@ document.addEventListener('click', (e) => {
 });
 
 window.addEventListener('hashchange', render);
-window.addEventListener('DOMContentLoaded', async () => { await _ratesReady; render(); });
+window.addEventListener('DOMContentLoaded', async () => { await Promise.all([_ratesReady, _productsReady]); render(); });
 
 /* ---------------------------------------------------------
    INTERACTIONS
@@ -1966,6 +2069,22 @@ function bindForms(){
     });
   }
 }
+
+/* CONSENT */
+(function(){
+  const bar = document.getElementById('consent-bar');
+  const accept = document.getElementById('consent-accept');
+  const decline = document.getElementById('consent-decline');
+  if(!bar) return;
+  setTimeout(() => bar.classList.add('show'), 900);
+  accept.addEventListener('click', () => {
+    loadAnalytics();
+    bar.classList.remove('show');
+  });
+  decline.addEventListener('click', () => {
+    bar.classList.remove('show');
+  });
+})();
 
 /* CURRENCY */
 /* CURRENCY SWITCHER */

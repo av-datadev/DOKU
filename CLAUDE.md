@@ -10,10 +10,12 @@ actually have.** See "Hard rules."
 ## What it is
 A single self-contained file, `index.html` — a client-side SPA with
 hash-based routing (`#/`, `#/collection`, `#/item/:sku`, `#/cart`,
-`#/checkout`, `#/confirmation`, `#/archive`, `#/provenance`, `#/inquire`).
-No build step, no framework, no backend. Cart and currency selection live in
-plain JS variables (in-memory only) — that's intentional, not a missing
-feature, see Hard rules.
+`#/checkout`, `#/confirmation`, `#/archive`, `#/provenance`, `#/inquire`,
+`#/privacy`). No build step, no framework. Cart and currency selection live
+in plain JS variables (in-memory only) — that's intentional, not a missing
+feature, see Hard rules. The catalog itself now lives in Supabase (see
+"Data model") — that's the one piece of real backend the site has; there is
+still no auth, no order persistence, and no payment processor.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -55,16 +57,52 @@ DOKU" for exactly this reason).
    wired up. Never let copy or behavior imply a real charge happened.
 
 ## Data model
-All catalog data lives in the `PRODUCTS` array near the top of the
-`<script>`. Common: `sku`, `title`, `status` (`'available'` |
-`'coming-soon'` | `'claimed'`). Status-specific: `price` / `story[]` /
-`specs{}` / `origin` / `year` for available items; `teaser` for coming-soon;
-`epitaph` for claimed. Add `image:'data-uri-or-path'` to any item and it
+Catalog data lives in a Supabase Postgres table, `public.products`
+(project `mudyipmizlvihcldzrvh`, schema in `supabase/schema.sql`). Fields:
+`sku`, `title`, `status` (`'available'` | `'coming-soon'` | `'claimed'`),
+`price`, `story` (jsonb array), `specs` (jsonb object), `origin`, `year`,
+`teaser`, `epitaph`, `image`, `reference_image` (bool), `sort_order`.
+
+On load, `<script>` fetches from Supabase (`_productsReady`, 2.5s timeout)
+into `PRODUCTS`. If the fetch fails or times out, `PRODUCTS` stays on
+`FALLBACK_PRODUCTS` — a hardcoded array kept in sync manually as a safety
+net, same defensive pattern as the currency-rate fetch. Row Level Security
+on the table allows public `SELECT` only; there is no public write path, no
+auth, and no admin UI — catalog edits happen from the Supabase dashboard
+(Table Editor or SQL Editor) directly.
+
+Add `image:'data-uri-or-path'` (or the `image` column) to any item and it
 automatically shows a real photo instead of the placeholder/sketch — see
 `frame()`. Claimed items with an image automatically render desaturated.
+Set `reference_image: true` alongside a photo that isn't the actual DOKU
+piece — `frame()` renders the "Reference image — not the actual piece"
+disclosure for it. See Hard rule 1 — this is not optional.
+
+## Data & privacy — actual current behavior
+- **No `localStorage`/`sessionStorage` anywhere** — cart, currency, and
+  consent state are in-memory JS only. See Hard rule 3.
+- **Checkout card fields are never transmitted or stored.** The submit
+  handler only runs a local `setTimeout`, flips item status, and redirects —
+  no `fetch` call touches payment data. Consistent with Hard rule 4.
+- **"Inquire" and "Notify me" forms DO submit** — to Web3Forms
+  (`api.web3forms.com`), carrying whatever name/email/message the visitor
+  enters (`WEB3FORMS_KEY` near the top of `<script>`, a public/domain-scoped
+  key by Web3Forms' design, not a secret). Both forms disclose this inline
+  via `.fine-print`, linking to `#/privacy`.
+- **Google Analytics (GA4, ID `G-S1MKLYC4QS`) is consent-gated.** The `<head>`
+  snippet defines a `gtag` stub and a `loadAnalytics()` function but does
+  *not* load the GA script or fire `config` on page load. The
+  `#consent-bar` UI only calls `loadAnalytics()` if the visitor clicks
+  Accept; Decline (or ignoring the bar) means no GA request ever fires.
+  Because there's no storage, the bar reappears each session — same
+  intentional tradeoff as Hard rule 3.
+- `#/privacy` is the single source of truth for what's collected and where
+  it goes — keep it in sync if any of the above changes.
 
 ## Known gaps / likely next steps
 - No real product photography yet — placeholders and sketches throughout
 - Checkout needs a real backend + payment processor before going live
 - Currency conversion rates are hardcoded/indicative, not a live feed
-- "Notify me" and "Inquire" forms don't send anywhere yet — front-end only
+- No admin UI for the catalog — edits go through the Supabase dashboard
+- No auth, no user accounts, no order persistence — Supabase currently
+  backs the catalog only, not orders

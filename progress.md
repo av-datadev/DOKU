@@ -200,24 +200,41 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 7 — 2026-07-03
+
+### Consent bar & privacy page (carried over from uncommitted work, now documented)
+- New `#/privacy` route, a bottom consent bar gating GA4 behind explicit Accept, and inline disclosure on Inquire/Notify forms that submissions route through Web3Forms. `CLAUDE.md` got a new "Data & privacy" section documenting the actual current behavior.
+
+### Supabase — catalog moved off the hardcoded array
+- Created a Supabase project (`mudyipmizlvihcldzrvh`, `ap-southeast-2`) and a `public.products` table — schema in `supabase/schema.sql`, RLS on with public `SELECT` only, no public write path.
+- Migrated all 12 existing products (5 available, 4 claimed, 3 coming-soon) into the table via `supabase/seed.sql`, generated directly from the live `PRODUCTS` array — including the two full-size reference-image data URIs for SKUs 017/018, byte-for-byte.
+- `doku-site_9.html`: old `PRODUCTS` array renamed to `FALLBACK_PRODUCTS` (kept as the safety net). Added the Supabase JS client via CDN (no build step) and a `_productsReady` fetch — 2.5s timeout, same defensive pattern as the currency-rate fetch — that populates `PRODUCTS` from the live table, mapping `reference_image`/`sort_order` back to the JS shape the rest of the app expects. `DOMContentLoaded` now awaits both `_ratesReady` and `_productsReady` before the first `render()`.
+- Verified end-to-end in the browser preview: confirmed the 404-then-fallback behavior before the migration ran, then confirmed a live 200 fetch and correct rendering (including N°017's reference image and disclosure label) after.
+- Catalog edits from here happen in the Supabase dashboard (Table Editor or SQL Editor), not by hand-editing the HTML — closes part of the "no admin panel" gap from the architecture review, though there's still no dedicated admin UI or auth.
+- Scope deliberately left out of this pass: orders, payments, and auth are still untouched — Supabase backs the catalog only for now.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
 |---|---|---|
 | `doku-site_8.html` | Baseline | Original version, kept intact |
 | `doku-site_9.html` | **Active** | All changes live here |
-| `CLAUDE.md` | Done | Project context for Claude sessions |
-| `design.md` | Updated | Living design system — updated this session |
+| `CLAUDE.md` | Updated | Data model section now documents Supabase |
+| `design.md` | Updated | Living design system |
 | `progress.md` | Updated | This file |
-| `images/` | Existing | Reference photos for SKUs 017 and 018 |
-| `Videos/` | Existing, unused | Logo-reveal clip — built and reverted this session, see Session 5 |
+| `supabase/schema.sql` | New | `products` table definition + RLS policy |
+| `supabase/seed.sql` | New | One-time migration — schema + all 12 products |
+| `images/` | Existing | Reference photos for SKUs 017 and 018 (also now in Supabase) |
+| `Videos/` | Existing, unused | Logo-reveal clip — built and reverted Session 5 |
 | `.claude/launch.json` | Fixed | Serves from `/Applications/Repos/Repo/DOKU` |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
 
 **3 coming-soon objects** — 019, 020, 021. All three use gold-line SVG sketches, no undisclosed photos.
 
-**Live integrations:** Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics — confirmed active in Realtime dashboard).
+**Live integrations:** Supabase (product catalog), Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics, consent-gated).
 
 ---
 
@@ -233,7 +250,10 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
 
 ### Infrastructure (before going live)
+- [x] **Product catalog database** — Live in Supabase as of this session. See Session 7.
 - [ ] **Real backend + payment processor** — Checkout is currently a simulation. Needs Stripe or similar wired to an actual order endpoint. (Scoped but paused — owner wants the domain finalized first.)
+- [ ] **Order persistence** — No order ever gets a durable record; "claimed" status is client-side only until this is built (natural next Supabase table once payments are real).
+- [ ] **Admin UI** — Catalog edits currently go through the Supabase dashboard directly; a lightweight authenticated admin page would remove the last reason to touch raw SQL/table UI for day-to-day changes.
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
 - [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages) once a domain is picked.
-- [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`). Pageviews, add-to-cart, form leads all tracked.
+- [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the new privacy bar.
