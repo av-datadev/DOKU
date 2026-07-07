@@ -245,6 +245,22 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 10 — 2026-07-07
+
+### Live deployment — Cloudflare Workers (static assets)
+- Installed the Cloudflare plugin/skills marketplace for Claude Code (`claude plugin marketplace add cloudflare/skills` + `claude plugin install cloudflare@cloudflare`), for future Cloudflare-aware sessions.
+- Added `index.html` (copy of `doku-site_9.html`) as the deploy entry point — hosts expect `index.html` by default, and the site was previously only reachable via the versioned filename.
+- Added `wrangler.jsonc` — configures the repo as a Workers static-assets project (`assets.directory: "./"`, `not_found_handling: "single-page-application"` so hash-routing works cleanly).
+- Added `.assetsignore` — keeps `supabase/`, `Images/`, `*.md`, `*.pdf`, `.claude/`, `.git`, and the pre-`index.html` site versions out of the public deploy bundle. Confirmed live: only 4 files uploaded (`index.html`, `admin.html`, plus Wrangler's own no-op worker files) out of 112 in the repo.
+- Created a Cloudflare Workers & Pages project connected via Git to `av-datadev/DOKU` on `main`, no build command, deploy command `npx wrangler deploy`. First deploy succeeded — live at `https://doku.pushpak1999gupta.workers.dev`.
+
+### Domain — discoverdoku.com connected
+- Domain was purchased directly through Cloudflare Registrar (zone already active, no nameserver migration needed).
+- Attaching it as a Custom Domain on the Worker initially failed: "Hostname already has externally managed DNS records." The zone had 4 leftover records from a prior, unused Shopify setup (root `A`/`AAAA` pointing at Shopify's IPs, plus `dns-verification.shopify.com` and `shops.myshopify.com` CNAMEs).
+- Confirmed the Shopify store was leftover/unused, deleted all 4 records, then successfully attached `discoverdoku.com` as a Custom Domain on the `doku` Worker.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
@@ -260,6 +276,9 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 | `images/` | Existing | Reference photos for SKUs 017 and 018 (also now in Supabase) |
 | `Videos/` | Existing, unused | Logo-reveal clip — built and reverted Session 5 |
 | `.claude/launch.json` | Fixed | Serves from `/Applications/Repos/Repo/DOKU` |
+| `index.html` | **New** | Deploy entry point (copy of `doku-site_9.html`) |
+| `wrangler.jsonc` | **New** | Cloudflare Workers static-assets config |
+| `.assetsignore` | **New** | Excludes non-site files from the public deploy bundle |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
 
@@ -277,7 +296,7 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [ ] **Real product photography** — Replace reference images with owned photos when available
 
 ### Brand
-- [ ] **Pick the domain** — shortlist in Session 5 (`doku.one`, `doku.estate`, `doku.maison`, `doku.gallery`, `doku.living`); none verified available yet.
+- [x] **Pick the domain** — `discoverdoku.com` purchased via Cloudflare Registrar and connected, Session 10.
 - [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
 - [ ] **Domain-based admin account** — once the domain is picked, add a domain admin (e.g. `admin@discoverdoku.com`) alongside (or replacing) the current Gmail admin. Two steps: (1) create the user in Supabase Auth (dashboard → Authentication → Users → Add user, auto-confirm on) and (2) **insert their `auth.users.id` into the `admins` allowlist** — step 2 is what actually grants access; the RLS policies check `admins` membership, not just "is authenticated." The account email is only a login label — it does *not* need to be a real, deliverable mailbox for password login. It only needs a working inbox (via Google Workspace / an SMTP provider) if you want password-reset / magic-link emails to reach it; decide that before creating it, since it's what determines whether SMTP setup is worth doing. The `admins` table supports multiple rows, so old and new admins can coexist.
 
@@ -290,5 +309,5 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [x] **Promote-to-claimed workflow** — now a first-class action in `admin.html` (was a manual Supabase dashboard edit). Still a human decision, but no longer raw SQL.
 - [ ] **Enable leaked-password protection** — one-click Supabase Auth toggle, flagged by the advisor in Session 9.
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
-- [ ] **Domain + hosting** — The site is a single HTML file; can be served from any static host (Vercel, Netlify, Cloudflare Pages) once a domain is picked.
+- [x] **Domain + hosting** — Live on Cloudflare Workers (static assets) at `discoverdoku.com`, Session 10.
 - [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the privacy bar. New `reserve_order` event fires on a successful checkout.
