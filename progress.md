@@ -261,6 +261,28 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 11 — 2026-07-07
+
+### Domain-based admin account — `admin@discoverdoku.com`
+- Created a second admin, `admin@discoverdoku.com`, alongside the existing Gmail admin (both remain in the `admins` allowlist so there's no lock-out risk). Email pre-confirmed (`email_confirmed_at` set) so it can log in immediately without a working mailbox — Google Workspace email is still paused, so password-reset emails have nowhere to land yet; **the password must be rotated in-app, not via a reset link.**
+- **Bug found and fixed — raw `auth.users` INSERT left GoTrue token columns NULL.** Creating the user directly in SQL (rather than via the Supabase Add-User flow / Admin API) left `confirmation_token`, `recovery_token`, `email_change`, `email_change_token_new`, `email_change_token_current`, `phone_change`, `phone_change_token`, and `reauthentication_token` as `NULL`. GoTrue scans these into non-nullable Go strings and 500s with *"error finding user: converting NULL to string is unsupported"* → surfaced to the client as *"Database error querying schema"* and, in `admin.html`, the generic *"That didn't open. Check the email and password."* This broke login **only for that user** (the Gmail admin, created properly with `''`, was unaffected). Fixed by `COALESCE`-ing all eight columns to `''`. Diagnosed via the auth-service logs + a deliberately-wrong-password probe of `/auth/v1/token` (confirmed the 500 became a clean `400 invalid_credentials` after the fix). **Takeaway: create Supabase auth users via the dashboard/Admin API, not raw INSERT.**
+- Verified end-to-end: password validates, email confirmed, identity row present, in `admins` — and the owner logged into the live admin dashboard successfully.
+
+### admin.html hardening — Cloudflare Access (chosen over a subdomain)
+- Put a **Cloudflare Access** (Zero Trust) self-hosted application in front of `discoverdoku.com/admin.html` — an identity gate at Cloudflare's edge *before* the request reaches the Supabase login, so `/admin.html` is now double-gated (Cloudflare Access → DOKU/Supabase). Team domain `soft-firefly-9a4f.cloudflareaccess.com`.
+- Chose Access over the alternative (moving admin to an `admin.discoverdoku.com` subdomain): a subdomain only changes *where* the page lives and adds no auth, whereas Access adds a real second authentication layer. Both are free; Access is the one that actually secures it.
+- Policy is allow-list by email. Login method is the org's default **"Sign in with Cloudflare"** (the owner's own Cloudflare account), not one-time-PIN — the policy allows the owner's Cloudflare-account email. Verified the gate live: a fresh request to `/admin.html` 302-redirects to the Access login; the public site and product pages are unaffected (no prompt).
+- One-time-PIN was offered as an alternative login method but not enabled; can be added later under Zero Trust → Settings → Authentication if a non-Cloudflare-account login is ever wanted.
+
+### Domain security & leaked-password — status
+- **Registry lock:** corrected an earlier overstatement — true registry lock is Cloudflare **Enterprise-only** for `.com`. Self-serve protection is **registrar lock** (`clientTransferProhibited`, on by default) plus hardening the Cloudflare **account with 2FA** (the account login is the real attack surface). Owner actioned this pass.
+- **Leaked-password protection:** parked — it's a Supabase **Pro-plan** feature (HaveIBeenPwned), not worth a plan upgrade on its own right now.
+
+### Email — paused
+- Decided on **Google Workspace** for `enquiry@` + `admin@` mailboxes (Zoho's free tier is discontinued for new signups). Full DNS playbook (MX/SPF/DKIM/DMARC, `enquiry@` as a free alias on one paid seat) was written up but **not yet applied** — owner paused this step until the site matures.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
@@ -298,7 +320,8 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 ### Brand
 - [x] **Pick the domain** — `discoverdoku.com` purchased via Cloudflare Registrar and connected, Session 10.
 - [ ] **Decide on the intro video** — built and works, reverted pending a fix for the duplicate "DOKU / Found. Not made." reveal (see Session 5). Asset is in `Videos/` if revisited.
-- [ ] **Domain-based admin account** — once the domain is picked, add a domain admin (e.g. `admin@discoverdoku.com`) alongside (or replacing) the current Gmail admin. Two steps: (1) create the user in Supabase Auth (dashboard → Authentication → Users → Add user, auto-confirm on) and (2) **insert their `auth.users.id` into the `admins` allowlist** — step 2 is what actually grants access; the RLS policies check `admins` membership, not just "is authenticated." The account email is only a login label — it does *not* need to be a real, deliverable mailbox for password login. It only needs a working inbox (via Google Workspace / an SMTP provider) if you want password-reset / magic-link emails to reach it; decide that before creating it, since it's what determines whether SMTP setup is worth doing. The `admins` table supports multiple rows, so old and new admins can coexist.
+- [x] **Domain-based admin account** — `admin@discoverdoku.com` created and added to the `admins` allowlist alongside the Gmail admin, Session 11 (incl. the NULL-token GoTrue fix). Password-reset emails won't work until Google Workspace is set up; rotate the password in-app for now.
+- [ ] **Email — Google Workspace** (paused) — `enquiry@` + `admin@` mailboxes on the domain. DNS playbook ready (MX/SPF/DKIM/DMARC; `enquiry@` as a free alias on one paid seat). Needed for password-reset delivery and customer inquiries. Deferred until the site matures.
 
 ### Infrastructure (before going live)
 - [x] **Product catalog database** — Live in Supabase as of Session 7.
@@ -307,7 +330,9 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.
 - [x] **Promote-to-claimed workflow** — now a first-class action in `admin.html` (was a manual Supabase dashboard edit). Still a human decision, but no longer raw SQL.
-- [ ] **Enable leaked-password protection** — one-click Supabase Auth toggle, flagged by the advisor in Session 9.
+- [x] **Admin page hardening** — Cloudflare Access gate added in front of `/admin.html` (Session 11), so it's double-gated (Access → Supabase). Chose Access over a subdomain.
+- [~] **Enable leaked-password protection** — parked: it's a Supabase **Pro-plan** feature, not worth a plan upgrade alone (revisit if already on Pro for other reasons).
+- [~] **Domain security** — registrar lock is on by default; account 2FA actioned Session 11. True registry lock is Enterprise-only, not pursued.
 - [x] **Web3Forms** — Key live (`bcd721f3-…`). Inquire and Notify forms send real emails.
 - [x] **Domain + hosting** — Live on Cloudflare Workers (static assets) at `discoverdoku.com`, Session 10.
 - [x] **Analytics** — GA4 live (`G-S1MKLYC4QS`), consent-gated behind the privacy bar. New `reserve_order` event fires on a successful checkout.
