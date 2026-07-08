@@ -283,6 +283,24 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 12 — 2026-07-07
+
+### Razorpay payments (domestic INR) — built and verified in test mode
+**Decision:** Razorpay over Stripe (India-based, no PAN yet → test mode, which needs no KYC). Domestic INR only to start; other currencies stay display-only until international activation (Video KYC + IEC) is worth doing.
+- **Architecture** — the static site had no backend for secrets, so payments run through **two Supabase Edge Functions** (secret key lives as a Supabase secret, never in the HTML; only the public `key_id` reaches the browser):
+  - `razorpay-create-order` — computes the INR charge **server-side** from catalog prices (USD→INR via Frankfurter, fallback 83), so the amount can't be tampered client-side; creates the Razorpay order.
+  - `razorpay-verify-payment` — verifies the HMAC signature, independently confirms with Razorpay that the payment is captured/authorized and belongs to the order, then reserves.
+- **DB** — new `place_order_paid()` (migration `razorpay_payments`): mirrors `place_order` but forces INR, records `razorpay_order_id`/`razorpay_payment_id`/`amount_inr` (paise) on `orders`, is **idempotent** on payment id, and is **server-only** (`revoke from public; grant to service_role`) — the browser can never reserve without a verified payment.
+- **Client** (`doku-site_9.html`) — checkout now does create-order → Razorpay Checkout → verify → reserve. **Removed the simulated card fields** (Razorpay collects the card in its secure modal; DOKU never touches card data). GA4 event upgraded `reserve_order`→`purchase`. Added `loadRazorpay()` (on-demand script) and `invokeFn()` (unwraps supabase-js's hidden non-2xx error bodies).
+- **Verified:** create-order returns a real order with the correct ₹ amount; forged signature rejected (400); `place_order_paid` reserves + is idempotent (double-call → one row); the real Razorpay **test modal opened** with correct DOKU branding, gold theme, and ₹1,74,744.80. Fixed a CORS preflight failure (added `x-client-info` to `Access-Control-Allow-Headers`). Confirmed the **failure path is clean** — an international-card decline left no order and no false confirmation. **Still untested:** one *successful* captured payment (blocked by international-card decline; needs a domestic test method — UPI `success@razorpay`).
+- **Not live:** all Razorpay work is staged in `doku-site_9.html` only. `index.html` (live) keeps the pre-Razorpay reserve-simulation checkout, so real visitors never see a test-mode payment. Cutover = copy dev→`index.html`, live keys, revoke anon `place_order`, lock CORS to `discoverdoku.com`, rewrite the "simulation" copy + Hard Rule 4.
+
+### Region → currency bar — live on discoverdoku.com
+- New top bar shown on **every entry** (no storage, per Hard rule 3): pick a country/region → prices convert to that currency; **anything unsupported falls back to USD**. Locale/timezone-guessed default so prices are right even if ignored. Reused via a new shared `setCurrency()` that also backs the manual switcher.
+- Ported to the **live `index.html`** with checkout left untouched (0 Razorpay refs there) — so the two files now differ *only* in payment code. Verified live: bar renders on-brand, region→currency correct (₹/€/£/¥), USD fallback works, no console errors.
+
+---
+
 ## Current State
 
 | File | Status | Notes |
@@ -301,6 +319,9 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 | `index.html` | **New** | Deploy entry point (copy of `doku-site_9.html`) |
 | `wrangler.jsonc` | **New** | Cloudflare Workers static-assets config |
 | `.assetsignore` | **New** | Excludes non-site files from the public deploy bundle |
+| `supabase/functions/razorpay-create-order/` | **New** | Edge fn — server-side INR order creation (Session 12) |
+| `supabase/functions/razorpay-verify-payment/` | **New** | Edge fn — signature verify + reserve (Session 12) |
+| `supabase/migrations/20260707_razorpay_payments.sql` | **New** | `place_order_paid()` + payment columns on `orders` |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
 
@@ -326,7 +347,8 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 ### Infrastructure (before going live)
 - [x] **Product catalog database** — Live in Supabase as of Session 7.
 - [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
-- [ ] **Real payment processor** — `place_order()` never verifies a charge happened; this is still the honest gap before real money can be involved. Needs Stripe or similar wired in, at which point a successful charge is what should trigger `place_order()` (or a variant of it) rather than a bare form submit.
+- [~] **Real payment processor** — **Razorpay (domestic INR) built + verified in test mode** (Session 12): two Edge Functions + `place_order_paid()`, staged in `doku-site_9.html`. Remaining: one successful captured-payment test (domestic method), then go-live (PAN/KYC → live keys, revoke anon `place_order`, lock CORS, rewrite Hard Rule 4/"simulation" copy, cut dev→`index.html`).
+- [x] **Region → currency bar** — live on `discoverdoku.com` (Session 12): region select on entry → currency, USD fallback, no storage.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.
 - [x] **Promote-to-claimed workflow** — now a first-class action in `admin.html` (was a manual Supabase dashboard edit). Still a human decision, but no longer raw SQL.
