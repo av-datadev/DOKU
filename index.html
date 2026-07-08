@@ -792,6 +792,41 @@
     .consent-bar{ padding:20px 24px; flex-direction:column; align-items:flex-start; }
   }
 
+  /* ── REGION / CURRENCY-BY-LOCATION ── */
+  .region-bar{
+    position:fixed; top:0; left:0; right:0; z-index:9500;
+    background:var(--bg-card); border-bottom:1px solid var(--hairline);
+    padding:14px 48px; display:flex; justify-content:center; align-items:center; gap:24px;
+    flex-wrap:wrap; transform:translateY(-110%); transition:transform .55s var(--ease);
+  }
+  .region-bar.show{ transform:translateY(0); }
+  .region-bar p{ font-size:13px; color:var(--muted); margin:0; }
+  .region-actions{ display:flex; align-items:center; gap:14px; }
+  .region-select-wrap{ position:relative; }
+  #region-select{
+    appearance:none; -webkit-appearance:none; background:var(--bg); color:var(--ivory);
+    border:1px solid var(--hairline); border-radius:2px; padding:9px 34px 9px 14px;
+    font-family:'Archivo', sans-serif; font-size:13px; cursor:pointer; transition:border-color .3s;
+  }
+  #region-select:focus{ outline:none; border-color:var(--gold); }
+  .region-select-wrap::after{
+    content:''; position:absolute; right:14px; top:50%; width:6px; height:6px;
+    border-right:1px solid var(--gold); border-bottom:1px solid var(--gold);
+    transform:translateY(-70%) rotate(45deg); pointer-events:none;
+  }
+  .region-btn{
+    padding:10px 22px; font-size:11px; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer;
+    background:transparent; white-space:nowrap; border:1px solid var(--gold); color:var(--gold);
+    transition:background .3s, color .3s;
+  }
+  .region-btn:hover{ background:var(--gold); color:var(--bg); }
+  .region-close{ background:none; border:none; color:var(--claimed); font-size:15px; line-height:1; cursor:pointer; padding:6px; transition:color .3s; }
+  .region-close:hover{ color:var(--ivory); }
+  @media (max-width:640px){
+    .region-bar{ padding:12px 16px; gap:12px; }
+    .region-bar p{ font-size:12px; text-align:center; width:100%; }
+  }
+
   /* ── MISC ── */
   .vision-chapter{
     min-height:80vh; display:flex; flex-direction:column; align-items:center;
@@ -974,6 +1009,15 @@
   </footer>
 
   <div id="toast"></div>
+
+  <div id="region-bar" class="region-bar">
+    <p>Set your region. We'll show prices in your currency.</p>
+    <div class="region-actions">
+      <div class="region-select-wrap"><select id="region-select" aria-label="Country or region"></select></div>
+      <button id="region-continue" class="region-btn" type="button">Continue</button>
+      <button id="region-close" class="region-close" type="button" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
 
   <div id="consent-bar" class="consent-bar">
     <p>We track visits, lightly — only once you say yes. Messages you send us route through a delivery service, not a database we query. <a href="#/privacy">Read the details</a>.</p>
@@ -1166,6 +1210,17 @@ function money(usdAmount){
   const rate = RATES[currentCurrency] || 1;
   const converted = Math.round(usdAmount * rate);
   return SYMBOLS[currentCurrency] + converted.toLocaleString(LOCALES[currentCurrency]);
+}
+
+// Single source of truth for switching currency — used by both the manual
+// switcher and the region bar. Unsupported currencies fall back to USD.
+function setCurrency(cur, doRender = true){
+  if(!CURRENCIES.includes(cur)) cur = 'USD';
+  currentCurrency = cur;
+  const label = document.getElementById('currency-label');
+  if(label) label.textContent = cur;
+  document.querySelectorAll('.currency-option').forEach(o => o.classList.toggle('active', o.dataset.cur === cur));
+  if(doRender && typeof render === 'function') render();
 }
 
 /* ---------------------------------------------------------
@@ -2128,6 +2183,66 @@ function bindForms(){
   });
 })();
 
+/* REGION → CURRENCY — shown on every entry (no storage; Hard rule 3) */
+(function(){
+  const bar = document.getElementById('region-bar');
+  const sel = document.getElementById('region-select');
+  const cont = document.getElementById('region-continue');
+  const close = document.getElementById('region-close');
+  if(!bar || !sel) return;
+
+  // Only regions whose currency DOKU actually supports get their own line;
+  // everywhere else maps to USD via "Rest of the world".
+  const REGIONS = [
+    { code:'IN', name:'India',              cur:'INR' },
+    { code:'US', name:'United States',      cur:'USD' },
+    { code:'GB', name:'United Kingdom',     cur:'GBP' },
+    { code:'JP', name:'Japan',              cur:'JPY' },
+    { code:'DE', name:'Germany',            cur:'EUR' },
+    { code:'FR', name:'France',             cur:'EUR' },
+    { code:'IT', name:'Italy',              cur:'EUR' },
+    { code:'ES', name:'Spain',              cur:'EUR' },
+    { code:'NL', name:'Netherlands',        cur:'EUR' },
+    { code:'IE', name:'Ireland',            cur:'EUR' },
+    { code:'XX', name:'Rest of the world',  cur:'USD' },
+  ];
+  REGIONS.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r.code; o.textContent = r.name;
+    sel.appendChild(o);
+  });
+
+  // Region → currency, with the required USD fallback for anything unsupported.
+  const curFor = code => {
+    const r = REGIONS.find(x => x.code === code);
+    const c = r ? r.cur : 'USD';
+    return CURRENCIES.includes(c) ? c : 'USD';
+  };
+
+  // Best-effort guess so prices are right even if the bar is ignored.
+  function guessRegion(){
+    const lang = (navigator.language || '').split('-')[1];
+    if(lang && REGIONS.some(r => r.code === lang.toUpperCase())) return lang.toUpperCase();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if(/Kolkata|Calcutta/.test(tz)) return 'IN';
+    if(/London/.test(tz)) return 'GB';
+    if(/Tokyo/.test(tz)) return 'JP';
+    if(/^America\//.test(tz)) return 'US';
+    if(/^Europe\//.test(tz)) return 'DE';
+    return 'XX';
+  }
+
+  const guess = guessRegion();
+  sel.value = guess;
+  setCurrency(curFor(guess), false);          // apply up front, first render uses it
+
+  sel.addEventListener('change', () => setCurrency(curFor(sel.value)));
+  cont.addEventListener('click', () => { setCurrency(curFor(sel.value)); bar.classList.remove('show'); });
+  close.addEventListener('click', () => bar.classList.remove('show'));
+
+  setTimeout(() => bar.classList.add('show'), 700);
+})();
+
 /* CURRENCY */
 /* CURRENCY SWITCHER */
 (function(){
@@ -2145,13 +2260,8 @@ function bindForms(){
 
   dropdown.querySelectorAll('.currency-option').forEach(opt => {
     opt.addEventListener('click', () => {
-      const cur = opt.dataset.cur;
-      currentCurrency = cur;
-      label.textContent = cur;
-      dropdown.querySelectorAll('.currency-option').forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
+      setCurrency(opt.dataset.cur);
       closeCurrency();
-      render();
     });
   });
 
