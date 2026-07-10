@@ -1,41 +1,217 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Frame from '../../components/Frame.astro';
-import Placeholder from '../../components/Placeholder.astro';
-import { fetchProduct } from '../../lib/products';
+import ItemCard from '../../components/ItemCard.astro';
+import { fetchProducts, fetchProduct } from '../../lib/products';
 import { money } from '../../lib/format';
+import { WEB3FORMS_KEY } from '../../lib/forms';
+import { CART_COOKIE, decodeCart } from '../../lib/cart';
+import { serverEnv } from '../../lib/env';
 
-// Minimal item route for now — proves SSR resolution and 404s unknown SKUs.
-// The full product page (story, specs, provenance, "Hold this DOKU") is step 3.
+// Full object page — SSR per sku, real indexable URL. Port of viewProduct().
 const { sku } = Astro.params;
 const product = sku ? await fetchProduct(sku) : null;
-
 if (!product) {
   return new Response(null, { status: 404, statusText: 'Not found' });
 }
+
+const p = product;
+const isAvailable = p.status === 'available';
+const isComingSoon = p.status === 'coming-soon';
+const isReserved = p.status === 'reserved';
+
+const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
+const held = new Set(await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET')));
+const inCart = held.has(p.sku);
+
+const statusLabel = isAvailable
+  ? '1 of 1 — Available'
+  : isComingSoon
+    ? 'Direction confirmed — object pending'
+    : isReserved
+      ? 'Held — pending confirmation'
+      : 'Claimed — no longer available';
+
+const originLine = isComingSoon
+  ? "We haven't found this one yet."
+  : `Found in ${p.origin}.${p.year ? ` Sourced by the DOKU team, ${p.year}.` : ''}`;
+
+const allProducts = await fetchProducts();
+const related = allProducts.filter((x) => x.status === 'available' && x.sku !== p.sku).slice(0, 3);
 ---
 
-<Base title={`${product.title} — DOKU`}>
-  {product ? (
-    <section class="wrap" style="max-width:520px;padding-top:clamp(3rem,8vw,6rem);padding-bottom:6rem;">
-      <div style="margin-bottom:28px;">
-        <a href="/collection" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-decoration:none;">
-          The Collection &nbsp;/&nbsp; N° {product.sku}
-        </a>
+<Base title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
+  <div class="breadcrumb"><a href="/collection">The Collection</a> &nbsp;/&nbsp; N° {p.sku}</div>
+
+  <div class="product wrap">
+    <Frame product={p} faded={!isAvailable && !isComingSoon} />
+
+    <div class="product-info">
+      <div class="seal-row">
+        <div class="seal"><span class="seal-no serif">{p.sku}</span></div>
+        <span class:list={['seal-status', { 'is-claimed': !isAvailable }]}>{statusLabel}</span>
       </div>
-      <Frame product={product} />
-      <h1 class="serif" style="font-weight:300;font-size:clamp(2rem,5vw,2.75rem);margin:28px 0 10px;">{product.title}</h1>
-      <p style="color:var(--muted);margin:0 0 24px;">
-        {product.origin}{product.year ? ` · ${product.year}` : ''}
-      </p>
-      {product.price != null && (
-        <p class="serif" style="color:var(--gold);font-size:1.25rem;margin:0 0 24px;">{money(product.price)}</p>
+      <h1 class="serif">{p.title}</h1>
+      <div class="origin-line">{originLine}</div>
+
+      {isAvailable && (
+        <>
+          <div class="price-row">
+            <span class="price serif">{money(p.price)}</span>
+            <span class="price-note">No reproductions</span>
+          </div>
+          <form id="hold-form" method="POST" action="/api/cart">
+            <input type="hidden" name="action" value="hold" />
+            <input type="hidden" name="sku" value={p.sku} />
+            <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
+            <button class="btn-gold" type="submit" id="hold-btn" disabled={inCart}>
+              <span id="hold-btn-label">{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
+            </button>
+          </form>
+          <div class="claim-sub" id="hold-sub">
+            {inCart ? 'Review it in your cart to confirm the claim.' : 'Held until checkout. Nothing closes until you confirm.'}
+          </div>
+        </>
       )}
-      <p style="color:var(--claimed);font-size:.85rem;letter-spacing:.04em;">
-        Full object page — story, specifications, and holding — arrives in the next migration step.
-      </p>
-    </section>
-  ) : (
-    <Placeholder eyebrow="Not found" title="No such object." note="Nothing here carries that number." />
+
+      {isComingSoon && (
+        <>
+          <div class="price-row">
+            <span class="price serif" style="color:var(--muted);">Not yet priced</span>
+            <span class="price-note">Coming soon</span>
+          </div>
+          <form id="notify-form" novalidate>
+            <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
+            <input type="hidden" name="subject" value={`DOKU — Notify Request: ${p.title}`} />
+            <input type="hidden" name="from_name" value="DOKU Notify Form" />
+            <input type="hidden" name="sku" value={p.sku} />
+            <input type="hidden" name="item" value={p.title} />
+            <div class="form-group">
+              <label for="notify-email">Notify me when it's found</label>
+              <input id="notify-email" name="email" type="email" required placeholder="you@email.com" />
+            </div>
+            <p class="fine-print">Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
+            <button class="btn-gold" type="submit"><span>Notify me</span></button>
+          </form>
+          <div id="notify-result" class="claim-sub" style="margin-top:14px;"></div>
+        </>
+      )}
+
+      {isReserved && (
+        <>
+          <div class="price-row">
+            <span class="price serif" style="color:var(--claimed);">Held</span>
+            <span class="price-note">Pending confirmation</span>
+          </div>
+          <button class="btn-ghost" disabled>This DOKU is spoken for</button>
+          <div class="claim-sub">Someone has claimed this. We're finishing the details on our end.</div>
+        </>
+      )}
+
+      {!isAvailable && !isComingSoon && !isReserved && (
+        <>
+          <div class="price-row">
+            <span class="price serif" style="color:var(--claimed);">Claimed</span>
+            <span class="price-note">No reproductions</span>
+          </div>
+          <button class="btn-ghost" disabled>This DOKU is gone</button>
+          <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
+        </>
+      )}
+
+      {p.story && p.story.length > 0 && (
+        <div class="story-block">
+          <div class="eyebrow">The story</div>
+          {p.story.map((para) => <p>{para}</p>)}
+        </div>
+      )}
+      {p.teaser && (
+        <div class="story-block">
+          <div class="eyebrow">What we're chasing</div>
+          <p>{p.teaser}</p>
+        </div>
+      )}
+      {p.specs && Object.keys(p.specs).length > 0 && (
+        <div class="specs">
+          {Object.entries(p.specs).map(([k, v]) => (
+            <div class="spec-row"><span>{k}</span><span>{v}</span></div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+
+  {related.length > 0 && (
+    <>
+      <section class="section-head">
+        <div class="eyebrow">Also in the collection</div>
+        <h2 class="serif">You may not see these again</h2>
+      </section>
+      <div class="grid wrap" style="padding:0; margin-bottom:100px;">
+        {related.map((r) => <ItemCard product={r} held={held.has(r.sku)} />)}
+      </div>
+    </>
   )}
 </Base>
+
+<script>
+  // Progressive enhancement for "Hold this DOKU": without JS the form POSTs to
+  // /api/cart and the server 303-redirects back. With JS we fetch, update the
+  // button + header badge in place, and skip the reload.
+  function setBadge(count: number) {
+    for (const id of ['cart-count-desktop']) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = String(count);
+        el.hidden = count === 0;
+      }
+    }
+  }
+
+  const holdForm = document.getElementById('hold-form') as HTMLFormElement | null;
+  holdForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('hold-btn') as HTMLButtonElement | null;
+    const label = document.getElementById('hold-btn-label');
+    const sub = document.getElementById('hold-sub');
+    try {
+      const res = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { accept: 'application/json' },
+        body: new FormData(holdForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (btn) btn.disabled = true;
+        if (label) label.textContent = 'Held for you';
+        if (sub) sub.textContent = 'Review it in your cart to confirm the claim.';
+        setBadge(data.count);
+      } else if (sub) {
+        sub.textContent = data.error ?? 'Could not hold this piece.';
+      }
+    } catch {
+      // Network failure → fall back to a normal submit (server redirect).
+      holdForm.submit();
+    }
+  });
+
+  // "Notify me" for coming-soon items → Web3Forms, same as the live site.
+  const notifyForm = document.getElementById('notify-form') as HTMLFormElement | null;
+  notifyForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('notify-result');
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        body: new FormData(notifyForm),
+      });
+      const data = await res.json();
+      if (result) result.textContent = data.success
+        ? "We'll write to you the moment it's found."
+        : 'Something went wrong — try again shortly.';
+      if (data.success) notifyForm.reset();
+    } catch {
+      if (result) result.textContent = 'Something went wrong — try again shortly.';
+    }
+  });
+</script>

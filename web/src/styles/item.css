@@ -1,0 +1,80 @@
+/* Item detail page — ported verbatim from the single-file site's CSS. */
+
+.breadcrumb { padding: 28px 48px 0; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--claimed); }
+.breadcrumb a { color: var(--claimed); text-decoration: none; transition: color .3s; }
+.breadcrumb a:hover { color: var(--gold); }
+
+.product { display: grid; grid-template-columns: 1.1fr 1fr; gap: 80px; padding: 44px 48px 0; align-items: start; }
+.product > .frame {
+  position: sticky; top: 88px;
+  aspect-ratio: auto; height: calc(100vh - 120px); max-height: 820px; min-height: 480px;
+}
+.product > .frame img { object-fit: cover; object-position: center top; }
+.product-info { padding-top: 8px; padding-bottom: 120px; }
+
+.seal-row { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+.seal-status { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); }
+.seal-status.is-claimed { color: var(--claimed); }
+.product-info h1 { font-family: 'Fraunces', serif; font-weight: 300; font-size: 44px; line-height: 1.12; margin-bottom: 14px; }
+.origin-line { font-size: 14px; color: var(--muted); margin-bottom: 36px; line-height: 1.7; }
+
+.price-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+  padding: 22px 0; margin-bottom: 32px;
+}
+.price { font-family: 'Fraunces', serif; font-size: 26px; }
+.price-note { font-size: 11px; color: var(--claimed); letter-spacing: 0.1em; text-transform: uppercase; }
+
+.btn-gold {
+  width: 100%; padding: 18px; background: transparent;
+  border: 1px solid var(--gold); color: var(--gold);
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer;
+  margin-bottom: 14px; position: relative; overflow: hidden;
+  transition: color .38s var(--ease), border-color .38s;
+}
+.btn-gold::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--gold); transform: translateX(-101%);
+  transition: transform .45s var(--ease);
+}
+.btn-gold:hover { color: var(--bg); }
+.btn-gold:hover::before { transform: translateX(0); }
+.btn-gold span { position: relative; z-index: 1; }
+.btn-gold:disabled { opacity: 0.38; cursor: not-allowed; }
+.btn-gold:disabled::before { display: none; }
+.btn-ghost {
+  width: 100%; padding: 17px; background: transparent;
+  border: 1px solid var(--hairline); color: var(--ivory);
+  font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer;
+  transition: border-color .3s;
+}
+.btn-ghost:hover { border-color: var(--claimed); }
+.btn-ghost:disabled { opacity: 0.38; cursor: not-allowed; }
+.claim-sub { font-size: 12px; color: var(--claimed); text-align: center; margin-bottom: 52px; line-height: 1.7; }
+
+.story-block { margin-bottom: 40px; }
+.story-block p { font-size: 15px; line-height: 1.9; }
+.story-block p + p { margin-top: 16px; }
+.specs { border-top: 1px solid var(--hairline); padding-top: 26px; }
+.spec-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; }
+.spec-row span:first-child { color: var(--muted); }
+
+/* ── FORMS (shared with checkout/inquire) ── */
+.form-group { margin-bottom: 24px; }
+label { display: block; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+input, textarea {
+  width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--hairline);
+  color: var(--ivory); font-family: 'Archivo', sans-serif; font-size: 15px; padding: 11px 2px;
+  transition: border-color .3s; min-height: 44px;
+}
+input:focus, textarea:focus { border-color: var(--gold); outline: none; }
+.fine-print { font-size: 11px; color: var(--claimed); line-height: 1.75; margin-top: 20px; }
+.fine-print a { color: var(--gold); }
+
+@media (max-width: 900px) {
+  .product { grid-template-columns: 1fr; gap: 40px; padding: 32px 24px 0; }
+  .product > .frame { position: static; height: auto; aspect-ratio: 4/5; min-height: 0; max-height: none; }
+  .breadcrumb { padding: 22px 24px 0; }
+  .product-info h1 { font-size: 34px; }
+}
