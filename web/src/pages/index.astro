@@ -11,7 +11,7 @@ const available = products.filter((p) => p.status === 'available');
 ---
 
 <Base>
-  <main style="max-width:64rem;margin:0 auto;padding:clamp(3rem,8vw,7rem) 1.5rem;">
+  <div style="max-width:64rem;margin:0 auto;padding:clamp(3rem,8vw,7rem) 1.5rem;">
     <p style="letter-spacing:.28em;text-transform:uppercase;font-size:.72rem;color:var(--gold);margin:0 0 1.5rem;">
       Astro migration — scaffold
     </p>
@@ -45,5 +45,5 @@ const available = products.filter((p) => p.status === 'available');
     <p style="margin-top:2.5rem;color:var(--claimed);font-size:.85rem;">
       {available.length} available · rendered server-side
     </p>
-  </main>
+  </div>
 </Base>

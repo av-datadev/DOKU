@@ -1,0 +1,112 @@
+---
+import { CART_COOKIE, decodeCart } from '../lib/cart';
+
+// Active nav state is computed server-side from the real route — no more
+// client-only #/hash matching.
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isActive = (href: string) => path === href || path.startsWith(href + '/');
+
+// Live cart count, read from the signed cookie (Hard rule 3: no localStorage).
+const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
+const cartCount = (await decodeCart(cartValue, import.meta.env.CART_SECRET)).length;
+
+const NAV = [
+  { href: '/collection', label: 'The Collection' },
+  { href: '/archive', label: 'The Archive' },
+  { href: '/provenance', label: 'Provenance' },
+  { href: '/inquire', label: 'Inquire' },
+];
+const CURRENCIES = [
+  { code: 'USD', symbol: '$' },
+  { code: 'EUR', symbol: '€' },
+  { code: 'GBP', symbol: '£' },
+  { code: 'INR', symbol: '₹' },
+  { code: 'JPY', symbol: '¥' },
+];
+---
+
+<header id="site-header">
+  <a href="/" class="logo" aria-label="DOKU — home">DOKU</a>
+  <div class="header-right">
+    <div class="currency-select-wrap">
+      <button
+        class="currency-btn"
+        id="currency-btn"
+        aria-haspopup="listbox"
+        aria-expanded="false"
+        title="Prices convert at indicative rates"
+      >
+        <span id="currency-label">USD</span>
+        <svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="currentColor" stroke-width="1.2">
+          <polyline points="1,1 4.5,5 8,1" />
+        </svg>
+      </button>
+      <div class="currency-dropdown" id="currency-dropdown" role="listbox">
+        {CURRENCIES.map((c, i) => (
+          <div class:list={['currency-option', { active: i === 0 }]} data-cur={c.code} role="option">
+            <span>{c.code}</span><span class="cur-symbol">{c.symbol}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <nav class="nav-links" id="nav-links">
+      {NAV.map((n) => (
+        <a href={n.href} class:list={[{ active: isActive(n.href) }]}>{n.label}</a>
+      ))}
+      <a href="/cart" class:list={['cart-link', { active: isActive('/cart') }]}>
+        Cart <span class="cart-count" id="cart-count-desktop" hidden={cartCount === 0}>{cartCount}</span>
+      </a>
+    </nav>
+
+    <button class="menu-btn" id="menu-btn" aria-label="Open menu"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<div id="mobile-menu-backdrop"></div>
+<div id="mobile-menu">
+  <button class="close-btn" id="menu-close">Close</button>
+  {NAV.map((n) => <a href={n.href}>{n.label}</a>)}
+  <a href="/cart">Cart {cartCount > 0 ? `(${cartCount})` : ''}</a>
+</div>
+
+<script>
+  // Progressive enhancement for the shell. The header renders and links work
+  // without JS; this only adds the scroll-shrink, the mobile drawer, and the
+  // currency dropdown toggle. (Actual currency conversion lands in a later
+  // migration step — for now selecting an option just updates the label.)
+  const header = document.getElementById('site-header');
+  const onScroll = () => header?.classList.toggle('scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  const menu = document.getElementById('mobile-menu');
+  const backdrop = document.getElementById('mobile-menu-backdrop');
+  const openMenu = () => { menu?.classList.add('open'); backdrop?.classList.add('open'); };
+  const closeMenu = () => { menu?.classList.remove('open'); backdrop?.classList.remove('open'); };
+  document.getElementById('menu-btn')?.addEventListener('click', openMenu);
+  document.getElementById('menu-close')?.addEventListener('click', closeMenu);
+  backdrop?.addEventListener('click', closeMenu);
+  menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu));
+
+  const curBtn = document.getElementById('currency-btn');
+  const curDrop = document.getElementById('currency-dropdown');
+  const curLabel = document.getElementById('currency-label');
+  const toggleCur = (open?: boolean) => {
+    const next = open ?? !curDrop?.classList.contains('open');
+    curDrop?.classList.toggle('open', next);
+    curBtn?.classList.toggle('open', next);
+    curBtn?.setAttribute('aria-expanded', String(next));
+  };
+  curBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleCur(); });
+  curDrop?.querySelectorAll<HTMLElement>('.currency-option').forEach((opt) => {
+    opt.addEventListener('click', () => {
+      curDrop.querySelectorAll('.currency-option').forEach((o) => o.classList.remove('active'));
+      opt.classList.add('active');
+      if (curLabel) curLabel.textContent = opt.dataset.cur ?? 'USD';
+      toggleCur(false);
+      // TODO(currency step): call setCurrency(opt.dataset.cur) to reprice.
+    });
+  });
+  document.addEventListener('click', () => toggleCur(false));
+</script>

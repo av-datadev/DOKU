@@ -1,0 +1,17 @@
+---
+const NAV = [
+  { href: '/collection', label: 'Collection' },
+  { href: '/archive', label: 'Archive' },
+  { href: '/provenance', label: 'Provenance' },
+  { href: '/inquire', label: 'Inquire' },
+  { href: '/privacy', label: 'Privacy' },
+];
+---
+
+<footer>
+  <div class="logo-mark">DOKU</div>
+  <div>Handpicked. Found once. Never repeated.</div>
+  <nav>
+    {NAV.map((n) => <a href={n.href}>{n.label}</a>)}
+  </nav>
+</footer>

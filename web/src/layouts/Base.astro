@@ -1,5 +1,8 @@
 ---
 import '../styles/tokens.css';
+import '../styles/shell.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
 
 interface Props {
   title?: string;
@@ -27,6 +30,10 @@ const {
     />
   </head>
   <body>
-    <slot />
+    <Header />
+    <main id="app">
+      <slot />
+    </main>
+    <Footer />
   </body>
 </html>

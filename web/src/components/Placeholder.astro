@@ -1,0 +1,19 @@
+---
+// Temporary stand-in for routes not yet ported. Keeps the shell fully
+// navigable during migration; each is replaced by its real page in a later
+// step. Deliberately quiet — no fake content, nothing DOKU doesn't have.
+interface Props {
+  eyebrow: string;
+  title: string;
+  note: string;
+}
+const { eyebrow, title, note } = Astro.props;
+---
+
+<section style="max-width:52rem;margin:0 auto;padding:clamp(4rem,12vw,9rem) 1.5rem;min-height:52vh;">
+  <p style="letter-spacing:.28em;text-transform:uppercase;font-size:.72rem;color:var(--gold);margin:0 0 1.5rem;">
+    {eyebrow}
+  </p>
+  <h1 style="font-size:clamp(2.2rem,5.5vw,3.4rem);line-height:1.08;margin:0 0 1.25rem;">{title}</h1>
+  <p style="color:var(--muted);max-width:32rem;font-size:1.02rem;line-height:1.65;">{note}</p>
+</section>
