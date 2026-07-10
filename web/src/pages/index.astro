@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro';
+import { fetchProducts } from '../lib/products';
+
+// Server-rendered on Cloudflare Workers. This proves the real path: SSR pulls
+// the live catalog from Supabase (falling back to FALLBACK_PRODUCTS on failure)
+// before the HTML is sent — so /item/[sku] pages will be fully indexable, the
+// whole reason for leaving hash routing behind.
+const products = await fetchProducts();
+const available = products.filter((p) => p.status === 'available');
+---
+
+<Base>
+  <main style="max-width:64rem;margin:0 auto;padding:clamp(3rem,8vw,7rem) 1.5rem;">
+    <p style="letter-spacing:.28em;text-transform:uppercase;font-size:.72rem;color:var(--gold);margin:0 0 1.5rem;">
+      Astro migration — scaffold
+    </p>
+    <h1 style="font-size:clamp(2.4rem,6vw,4rem);line-height:1.05;margin:0 0 1rem;">
+      One object. Sold once.
+    </h1>
+    <p style="color:var(--muted);max-width:34rem;font-size:1.05rem;line-height:1.6;">
+      This is the new Astro + React skeleton. Below is the live catalog, fetched
+      from Supabase during server render — the same backend the current site
+      uses, untouched.
+    </p>
+
+    <section style="margin-top:3.5rem;border-top:1px solid var(--hairline);">
+      {available.map((p) => (
+        <article style="padding:1.5rem 0;border-bottom:1px solid var(--hairline);display:flex;justify-content:space-between;gap:1.5rem;align-items:baseline;">
+          <div>
+            <h2 style="font-size:1.5rem;margin:0 0 .35rem;">{p.title}</h2>
+            <p style="color:var(--muted);margin:0;font-size:.9rem;">
+              {p.origin}{p.year ? ` · ${p.year}` : ''} · DOKU N° {p.sku}
+            </p>
+          </div>
+          {p.price != null && (
+            <span style="color:var(--gold);white-space:nowrap;font-variant-numeric:tabular-nums;">
+              ${p.price.toLocaleString()}
+            </span>
+          )}
+        </article>
+      ))}
+    </section>
+
+    <p style="margin-top:2.5rem;color:var(--claimed);font-size:.85rem;">
+      {available.length} available · rendered server-side
+    </p>
+  </main>
+</Base>

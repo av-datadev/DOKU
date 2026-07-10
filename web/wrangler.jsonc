@@ -1,0 +1,14 @@
+{
+  // Scoped Worker config for the Astro app ONLY. Its presence stops the
+  // Cloudflare adapter from climbing to the repo-root wrangler.jsonc (which
+  // serves the current static single-file site). The two deploys stay separate
+  // until the cutover. `nodejs_compat` is needed by @supabase/supabase-js.
+  "name": "doku-web",
+  "compatibility_date": "2026-07-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./dist/_worker.js/index.js",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  }
+}
