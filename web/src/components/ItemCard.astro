@@ -1,0 +1,37 @@
+---
+import type { Product } from '../lib/products';
+import Frame from './Frame.astro';
+import { money } from '../lib/format';
+
+// Catalog card. Merges the old itemCard()/comingSoonCard() into one component
+// that branches on status. data-origin / data-price feed the collection filters
+// (client-side, over SSR-rendered cards — no innerHTML rebuild).
+interface Props {
+  product: Product;
+  held?: boolean;
+}
+const { product: p, held = false } = Astro.props;
+const isSoon = p.status === 'coming-soon';
+---
+
+<a
+  href={`/item/${p.sku}`}
+  class:list={['item', { 'coming-card': isSoon }]}
+  data-origin={p.origin ?? ''}
+  data-price={p.price ?? ''}
+>
+  <div class="seal"><span class="seal-no serif">N° {p.sku}</span></div>
+  <Frame product={p} />
+  <h3 class="serif">{p.title}</h3>
+  <div class="item-origin">
+    {isSoon ? 'Direction confirmed — object pending' : `Found in ${p.origin} — 1 of 1`}
+  </div>
+  <div class="item-bottom">
+    <span class="item-price serif" style={isSoon ? 'color:var(--muted);' : ''}>
+      {isSoon ? '—' : money(p.price)}
+    </span>
+    <span class="item-status" style={isSoon ? 'color:var(--muted);' : ''}>
+      {isSoon ? 'Coming soon' : held ? 'Held for you' : 'Available'}
+    </span>
+  </div>
+</a>

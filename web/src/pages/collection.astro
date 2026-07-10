@@ -1,11 +1,138 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
+import ItemCard from '../components/ItemCard.astro';
+import { fetchProducts } from '../lib/products';
+import { CART_COOKIE, decodeCart } from '../lib/cart';
+import { serverEnv } from '../lib/env';
+
+const products = await fetchProducts();
+const available = products.filter((p) => p.status === 'available');
+const soon = products.filter((p) => p.status === 'coming-soon');
+
+// "Held for you" state, from the signed cart cookie.
+const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
+const held = new Set(await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET')));
+
+// Origin pills: distinct origins, shown by their first segment (city).
+const origins = [...new Set(available.map((p) => p.origin).filter(Boolean))] as string[];
+const PRICE_PILLS = [
+  { key: 'all', label: 'All prices' },
+  { key: 'under2k', label: 'Under $2k' },
+  { key: '2k-5k', label: '$2k – $5k' },
+  { key: 'over5k', label: '$5k+' },
+];
 ---
+
 <Base title="The Collection — DOKU">
-  <Placeholder
-    eyebrow="The Collection"
-    title="The collection is being rebuilt."
-    note="The full catalogue — with its vitrine frames and hand-drawn sketches — is the next step of the migration. For now, the home page lists what's available."
-  />
+  <section class="section-head">
+    <div class="eyebrow">Currently held</div>
+    <h2 class="serif">The collection</h2>
+    <p>
+      Every piece below is unclaimed — waiting for someone who was also made once,
+      without a template. When it's gone, this page forgets it ever stood here.
+    </p>
+  </section>
+
+  <div class="wrap" style="padding-bottom:0;">
+    <div class="filter-bar" id="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Origin</span>
+        <button class="filter-pill active" data-filter="origin" data-filter-val="all">All</button>
+        {origins.map((o) => (
+          <button class="filter-pill" data-filter="origin" data-filter-val={o}>{o.split(',')[0].trim()}</button>
+        ))}
+      </div>
+      <div class="filter-divider"></div>
+      <div class="filter-group">
+        <span class="filter-label">Price</span>
+        {PRICE_PILLS.map((r) => (
+          <button class:list={['filter-pill', { active: r.key === 'all' }]} data-filter="price" data-filter-val={r.key}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <span class="filter-count" id="collection-count">{available.length} objects</span>
+      <button class="filter-clear" id="filter-clear" style="display:none;">Clear ×</button>
+    </div>
+  </div>
+
+  <div class="grid wrap grid-filtered" id="collection-grid" style="padding:0; margin-bottom:100px;">
+    {available.length
+      ? available.map((p) => <ItemCard product={p} held={held.has(p.sku)} />)
+      : <div class="empty-state">Nothing available right now. Check <a href="/archive">the archive</a>.</div>}
+    <div class="empty-state" id="no-matches" style="display:none;">
+      Nothing matches. <button type="button" id="clear-inline">Clear filters.</button>
+    </div>
+  </div>
+
+  {soon.length > 0 && (
+    <>
+      <section class="section-head">
+        <div class="eyebrow">Still being found</div>
+        <h2 class="serif">Coming soon</h2>
+        <p>Directions we're chasing. Not yet found, not yet priced.</p>
+      </section>
+      <div class="grid wrap" style="padding:0; margin-bottom:100px;">
+        {soon.map((p) => <ItemCard product={p} />)}
+      </div>
+    </>
+  )}
 </Base>
+
+<script>
+  // Client-side filtering over the SSR-rendered cards — hides/shows rather than
+  // rebuilding innerHTML, so the server-rendered catalogue stays intact.
+  const grid = document.getElementById('collection-grid');
+  const bar = document.getElementById('filter-bar');
+  if (grid && bar) {
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.item'));
+    const total = cards.length;
+    const countEl = document.getElementById('collection-count');
+    const clearBtn = document.getElementById('filter-clear');
+    const noMatches = document.getElementById('no-matches');
+    const state: { origin: string; price: string } = { origin: 'all', price: 'all' };
+
+    const inPrice = (price: number, key: string) =>
+      key === 'all' ||
+      (key === 'under2k' && price < 2000) ||
+      (key === '2k-5k' && price >= 2000 && price <= 5000) ||
+      (key === 'over5k' && price > 5000);
+
+    const apply = () => {
+      let shown = 0;
+      for (const card of cards) {
+        const origin = card.dataset.origin ?? '';
+        const price = Number(card.dataset.price || 0);
+        const ok = (state.origin === 'all' || origin === state.origin) && inPrice(price, state.price);
+        card.style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      }
+      const filtered = state.origin !== 'all' || state.price !== 'all';
+      if (countEl) countEl.textContent = filtered ? `${shown} of ${total}` : `${total} objects`;
+      if (clearBtn) clearBtn.style.display = filtered ? 'block' : 'none';
+      if (noMatches) noMatches.style.display = shown === 0 ? '' : 'none';
+    };
+
+    bar.querySelectorAll<HTMLElement>('.filter-pill').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const group = pill.dataset.filter as 'origin' | 'price';
+        const val = pill.dataset.filterVal ?? 'all';
+        state[group] = val;
+        bar.querySelectorAll(`.filter-pill[data-filter="${group}"]`).forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        apply();
+      });
+    });
+
+    const reset = () => {
+      state.origin = 'all';
+      state.price = 'all';
+      bar.querySelectorAll<HTMLElement>('.filter-pill').forEach((p) =>
+        p.classList.toggle('active', p.dataset.filterVal === 'all'),
+      );
+      apply();
+    };
+    clearBtn?.addEventListener('click', reset);
+    document.getElementById('clear-inline')?.addEventListener('click', reset);
+  }
+</script>

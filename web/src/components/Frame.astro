@@ -1,0 +1,40 @@
+---
+import type { Product } from '../lib/products';
+import { SKETCHES } from '../lib/sketches';
+
+// The signature "vitrine" device. Port of frame() from the single-file site,
+// governing Hard rules 1 & 2:
+//   • Real photo → shown. If reference_image is set, it carries the visible
+//     "Reference image — not the actual piece" disclosure (Hard rule 1).
+//   • No photo, sketch exists → the hand-drawn gold-line sketch (Hard rule 2).
+//   • No photo, no sketch → the gold corner-bracket placeholder with N° + state.
+// It NEVER invents an image, so it can never imply DOKU holds something it doesn't.
+interface Props {
+  product: Product;
+  faded?: boolean;
+  label?: string;
+}
+const { product: p, faded = false, label } = Astro.props;
+
+const sketch = SKETCHES[p.sku];
+const isReference = !!p.reference_image;
+---
+
+{p.image ? (
+  <div class:list={['frame', { 'frame-faded': faded, 'frame-reference': isReference }]}>
+    <img src={p.image} alt={p.title ?? ''} loading="lazy" />
+    {isReference && <span class="frame-label">Reference image — not the actual piece</span>}
+  </div>
+) : sketch ? (
+  <div class="frame frame-sketch">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <div class="sketch-art" set:html={sketch}></div>
+    <span class="frame-label">{label ?? 'Sketch — sourcing in progress'}</span>
+  </div>
+) : (
+  <div class="frame frame-waiting">
+    <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+    <span class="frame-no serif">N° {p.sku}</span>
+    <span class="frame-label">{p.status === 'coming-soon' ? 'Sourcing in progress' : 'Object held by DOKU'}</span>
+  </div>
+)}

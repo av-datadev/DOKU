@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+import Frame from '../../components/Frame.astro';
+import Placeholder from '../../components/Placeholder.astro';
+import { fetchProduct } from '../../lib/products';
+import { money } from '../../lib/format';
+
+// Minimal item route for now — proves SSR resolution and 404s unknown SKUs.
+// The full product page (story, specs, provenance, "Hold this DOKU") is step 3.
+const { sku } = Astro.params;
+const product = sku ? await fetchProduct(sku) : null;
+
+if (!product) {
+  return new Response(null, { status: 404, statusText: 'Not found' });
+}
+---
+
+<Base title={`${product.title} — DOKU`}>
+  {product ? (
+    <section class="wrap" style="max-width:520px;padding-top:clamp(3rem,8vw,6rem);padding-bottom:6rem;">
+      <div style="margin-bottom:28px;">
+        <a href="/collection" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-decoration:none;">
+          The Collection &nbsp;/&nbsp; N° {product.sku}
+        </a>
+      </div>
+      <Frame product={product} />
+      <h1 class="serif" style="font-weight:300;font-size:clamp(2rem,5vw,2.75rem);margin:28px 0 10px;">{product.title}</h1>
+      <p style="color:var(--muted);margin:0 0 24px;">
+        {product.origin}{product.year ? ` · ${product.year}` : ''}
+      </p>
+      {product.price != null && (
+        <p class="serif" style="color:var(--gold);font-size:1.25rem;margin:0 0 24px;">{money(product.price)}</p>
+      )}
+      <p style="color:var(--claimed);font-size:.85rem;letter-spacing:.04em;">
+        Full object page — story, specifications, and holding — arrives in the next migration step.
+      </p>
+    </section>
+  ) : (
+    <Placeholder eyebrow="Not found" title="No such object." note="Nothing here carries that number." />
+  )}
+</Base>
