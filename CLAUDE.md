@@ -2,24 +2,32 @@
 
 ## Why this exists
 DOKU is a premium marketplace for one-of-one objects — every item is genuinely
-unique, sold once, never restocked. The brand's entire value proposition rests
+unique, rare, and may never restocked. The brand's entire value proposition rests
 on authenticity. That makes one rule more important than any styling
 preference below: **never let the site imply DOKU has an object it doesn't
 actually have.** See "Hard rules."
 
 ## What it is
-A single self-contained file, `index.html` — a client-side SPA with
-hash-based routing (`#/`, `#/collection`, `#/item/:sku`, `#/cart`,
-`#/checkout`, `#/confirmation`, `#/archive`, `#/provenance`, `#/inquire`,
-`#/privacy`). No build step, no framework. Cart and currency selection live
-in plain JS variables (in-memory only) — that's intentional, not a missing
-feature, see Hard rules. The catalog and orders live in Supabase (see
-"Data model"), and there's a separate authenticated admin page
+A client-side SPA (a single self-contained HTML page) with hash-based routing
+(`#/`, `#/collection`, `#/item/:sku`, `#/cart`, `#/checkout`, `#/confirmation`,
+`#/archive`, `#/provenance`, `#/inquire`, `#/privacy`). No build step, no
+framework. **Live at https://discoverdoku.com**, served from Cloudflare
+Workers (static assets, `wrangler.jsonc`), auto-deployed from `main`. Cart and
+currency selection live in plain JS variables (in-memory only) — that's
+intentional, not a missing feature, see Hard rules. The catalog and orders
+live in Supabase (see "Data model"), with a separate authenticated admin page
 (`admin.html`, see "Admin") for managing them — that's the real backend the
-site has. Still no payment processor. NOTE: the in-memory / no-storage rule
-(Hard rule 3) applies to the public SPA only, NOT to `admin.html`, which is
-a distinct authenticated page and deliberately uses Supabase's default
-localStorage session — see Admin.
+site has. NOTE: the in-memory / no-storage rule (Hard rule 3) applies to the
+public SPA only, NOT to `admin.html`, which is a distinct authenticated page
+and deliberately uses Supabase's default localStorage session — see Admin.
+
+**File layout — important.** The public site is authored in `doku-site_9.html`
+(the active source); `index.html` at the repo root is its deploy copy. They
+**currently diverge by exactly the payment code**: `index.html` (live) runs
+the reserve-only checkout, while `doku-site_9.html` additionally has the
+Razorpay payment flow staged in **test mode** (see "Payments"). Mirror any
+*non-payment* change into both files; the two reconcile at the payment
+go-live cutover.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -57,8 +65,12 @@ DOKU" for exactly this reason).
    state by design — this only works because the whole site is one
    never-reloading page. If this ever becomes a real multi-page site, that
    needs a backend session, not browser storage.
-4. Checkout is a front-end-only simulation. There is no payment processor
-   wired up. Never let copy or behavior imply a real charge happened.
+4. Checkout on the **live** site is a reserve-only simulation — no real charge
+   happens. A Razorpay (domestic INR) integration is built but runs in **test
+   mode only** and is staged in `doku-site_9.html`, not deployed (see
+   "Payments"). Never let copy or behavior on the live site imply a real charge
+   happened. This rule gets rewritten — with the owner's explicit sign-off —
+   only at the payment go-live cutover.
 
 ## Data model
 Catalog data lives in a Supabase Postgres table, `public.products`
@@ -104,6 +116,31 @@ Set `reference_image: true` alongside a photo that isn't the actual DOKU
 piece — `frame()` renders the "Reference image — not the actual piece"
 disclosure for it. See Hard rule 1 — this is not optional.
 
+## Payments — Razorpay (test mode, staged; NOT live)
+Built in test mode, staged in `doku-site_9.html` only — the live `index.html`
+still uses the reserve-only checkout. Domestic **INR** only for now.
+- **Why Edge Functions:** the static site can't hold a secret, so payments run
+  through two Supabase Edge Functions. The Razorpay **secret key** lives as a
+  Supabase secret (`RAZORPAY_KEY_SECRET`); only the public `key_id` ever
+  reaches the browser.
+  - `razorpay-create-order` — computes the INR charge **server-side** from
+    catalog prices (USD→INR, so the amount can't be tampered with client-side)
+    and creates the Razorpay order.
+  - `razorpay-verify-payment` — verifies the HMAC signature, re-confirms with
+    Razorpay that the payment captured, then reserves.
+- **DB:** `place_order_paid()` (migration `razorpay_payments`) mirrors
+  `place_order` but forces INR, records `razorpay_order_id` /
+  `razorpay_payment_id` / `amount_inr` on `orders`, is **idempotent** on
+  payment id, and is **server-only** (revoked from `anon`; granted to
+  `service_role`). The browser can never reserve without a verified payment.
+- **Client:** checkout does create-order → Razorpay Checkout modal → verify →
+  reserve. Card data is entered in Razorpay's secure modal — DOKU never sees or
+  stores it (the old simulated card fields were removed from `doku-site_9.html`).
+- **Go-live checklist** (needs owner + PAN/KYC): flip to live keys, revoke the
+  `anon` grant on the old `place_order` (so payment becomes the *only* reserve
+  path), lock the Edge Function CORS to `discoverdoku.com`, rewrite Hard rule 4
+  and the on-site "simulation" copy, and copy `doku-site_9.html` → `index.html`.
+
 ## Admin — `admin.html`
 A **separate, standalone page** (not part of the public SPA, not linked from
 it) for managing the catalog and viewing orders. Kept separate on purpose:
@@ -111,30 +148,44 @@ it needs a persistent auth session, which means Supabase's default
 `localStorage` — allowed here precisely because it is NOT the public
 never-reloading SPA that Hard rule 3 was written for. Do not fold this into
 `doku-site_9.html`.
-- **Auth:** Supabase Auth (email/password), single admin account. Write
-  access is gated on the `admins` allowlist table via the `is_admin()`
-  SECURITY DEFINER helper — being merely `authenticated` is NOT enough, so
-  leaving public signups on can't grant a stranger access. The login flow
-  also re-checks `is_admin()` and signs out non-admins.
+- **Auth:** Supabase Auth (email/password). Admin accounts are the rows in the
+  `admins` allowlist — currently `apoorvverma0396@gmail.com` and
+  `admin@discoverdoku.com`. Write access is gated on `admins` membership via
+  the `is_admin()` SECURITY DEFINER helper — being merely `authenticated` is
+  NOT enough, so leaving public signups on can't grant a stranger access. The
+  login flow also re-checks `is_admin()` and signs out non-admins.
+  **Gotcha:** create admin users via the Supabase dashboard / Admin API, NOT a
+  raw `INSERT` into `auth.users` — a raw insert leaves GoTrue's token columns
+  (`confirmation_token`, `recovery_token`, …) NULL and every login 500s with
+  "Database error querying schema" until they're all set to `''`.
 - **What it does:** create / edit / delete products (all fields, incl.
   `story`/`specs`/`image`), promote a `reserved` item to `claimed` with a
   hand-written epitaph (the manual step Session 8 left open), and read
   orders with buyer details. All via the same anon key as the public site —
   RLS is what distinguishes them, never a secret in the file.
-- **Access:** open `admin.html` directly (any static host, or locally). It
-  carries `noindex,nofollow` and is not discoverable from the main site.
-  There is no server-side gate beyond Supabase auth — anyone who loads the
-  file still hits the login wall, and the anon key alone grants no write/
-  order access without an admin session.
+- **Access:** on the live site, `discoverdoku.com/admin.html` sits behind a
+  **Cloudflare Access** (Zero Trust) gate — an edge identity check (allow-list
+  by email; team `soft-firefly-9a4f.cloudflareaccess.com`) that runs BEFORE the
+  page loads, so admin is double-gated (Cloudflare Access → Supabase login).
+  The page also carries `noindex,nofollow` and isn't linked from the main site.
+  The anon key alone grants no write/order access without an admin session.
 - Schema (the `admins` table, `is_admin()`, and the admin RLS policies) is
   in `supabase/schema.sql`.
 
 ## Data & privacy — actual current behavior
 - **No `localStorage`/`sessionStorage` anywhere** — cart, currency, and
   consent state are in-memory JS only. See Hard rule 3.
-- **Checkout card fields are never transmitted or stored.** The submit
-  handler only runs a local `setTimeout`, flips item status, and redirects —
-  no `fetch` call touches payment data. Consistent with Hard rule 4.
+- **On the live site, checkout transmits only buyer/shipping data, never card
+  data.** The submit handler calls the `place_order()` RPC (name/email/address
+  → `orders`); the card fields it collects go nowhere (reserve-only, Hard rule
+  4). The staged Razorpay build (`doku-site_9.html`) removes the card fields
+  entirely — card data is entered in Razorpay's modal, never touching DOKU.
+- **Currency & region.** On entry a region bar (`#region-bar`) maps the
+  visitor's country/region to a currency (USD/EUR/GBP/INR/JPY), and USD for
+  anything unsupported; it's locale-guessed and stores nothing (so it reappears
+  each session, per Hard rule 3). Conversion uses live rates from the
+  Frankfurter API with hardcoded fallbacks; `setCurrency()` is the shared entry
+  point for both the region bar and the manual switcher.
 - **"Inquire" and "Notify me" forms DO submit** — to Web3Forms
   (`api.web3forms.com`), carrying whatever name/email/message the visitor
   enters (`WEB3FORMS_KEY` near the top of `<script>`, a public/domain-scoped
@@ -152,11 +203,14 @@ never-reloading SPA that Hard rule 3 was written for. Do not fold this into
 
 ## Known gaps / likely next steps
 - No real product photography yet — placeholders and sketches throughout
-- Checkout needs a real payment processor before going live — orders
-  persist now, but `place_order()` never verifies a charge happened
-- Currency conversion rates are hardcoded/indicative, not a live feed
+- **Payments not live.** Razorpay is built + verified in test mode (see
+  "Payments") but staged in `doku-site_9.html`; going live needs PAN/KYC, live
+  keys, and the cutover checklist. Domestic INR only — international cards need
+  separate Razorpay activation.
 - No *customer* accounts — buyers still check out as guests (by design).
   Admin auth exists (see Admin), but shoppers have no login.
-- Leaked-password protection (HaveIBeenPwned check) is off in Supabase Auth
-  — a one-click dashboard toggle worth enabling now that there's a real
-  admin login
+- No domain email yet — `enquiry@` / `admin@discoverdoku.com` mailboxes
+  (Google Workspace) are planned but not set up, so `admin@` password-reset
+  emails can't be delivered (rotate the password in-app instead).
+- Leaked-password protection (HaveIBeenPwned) is off in Supabase Auth — it's a
+  Pro-plan feature, parked (not worth a plan upgrade on its own).
