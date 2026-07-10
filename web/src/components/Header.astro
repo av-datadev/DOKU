@@ -1,5 +1,6 @@
 ---
 import { CART_COOKIE, decodeCart } from '../lib/cart';
+import { serverEnv } from '../lib/env';
 
 // Active nav state is computed server-side from the real route — no more
 // client-only #/hash matching.
@@ -7,8 +8,9 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const isActive = (href: string) => path === href || path.startsWith(href + '/');
 
 // Live cart count, read from the signed cookie (Hard rule 3: no localStorage).
+// serverEnv reads CART_SECRET from the Cloudflare runtime in prod, .env in dev.
 const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
-const cartCount = (await decodeCart(cartValue, import.meta.env.CART_SECRET)).length;
+const cartCount = (await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET'))).length;
 
 const NAV = [
   { href: '/collection', label: 'The Collection' },
