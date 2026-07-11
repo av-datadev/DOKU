@@ -1,0 +1,42 @@
+---
+import Base from '../layouts/Base.astro';
+import CartRow from '../components/CartRow.astro';
+import { fetchProducts } from '../lib/products';
+import { LAST_ORDER_COOKIE, decodeOrder } from '../lib/order';
+import { serverEnv } from '../lib/env';
+
+const secret = serverEnv(Astro.locals, 'CART_SECRET');
+const order = await decodeOrder(Astro.cookies.get(LAST_ORDER_COOKIE)?.value, secret);
+
+let items: NonNullable<Awaited<ReturnType<typeof fetchProducts>>[number]>[] = [];
+if (order) {
+  const products = await fetchProducts();
+  const byId = new Map(products.map((p) => [p.sku, p]));
+  items = order.skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
+}
+---
+
+<Base title="Held. Only for you. — DOKU">
+  <div class="narrow confirm-wrap">
+    {order ? (
+      <>
+        <div class="confirm-seal"><span class="serif" style="color:var(--gold);font-size:16px;">✓</span></div>
+        <h1 class="serif">Held. Only for you.</h1>
+        <p style="color:var(--muted);font-size:15px;line-height:1.8;">
+          {order.name ? `${order.name}, ` : ''}no one else can claim these while we finish the details on our end.
+        </p>
+        <div class="order-id">Order {order.code}</div>
+        <div class="confirm-list">
+          {items.map((p) => <CartRow product={p} />)}
+        </div>
+        <a href="/" class="btn-gold" style="display:block;text-align:center;text-decoration:none;">
+          <span>Return to DOKU</span>
+        </a>
+      </>
+    ) : (
+      <div class="empty-state">
+        No recent claim found. <a href="/collection">Browse the collection.</a>
+      </div>
+    )}
+  </div>
+</Base>

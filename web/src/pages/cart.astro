@@ -1,11 +1,74 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
+import CartRow from '../components/CartRow.astro';
+import { fetchProducts } from '../lib/products';
+import { money } from '../lib/format';
+import { CART_COOKIE, decodeCart } from '../lib/cart';
+import { serverEnv } from '../lib/env';
+
+const secret = serverEnv(Astro.locals, 'CART_SECRET');
+const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
+const products = await fetchProducts();
+const byId = new Map(products.map((p) => [p.sku, p]));
+// Only render items that still exist; keep the cart order.
+const items = skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
+const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);
 ---
-<Base title="Cart — DOKU">
-  <Placeholder
-    eyebrow="Cart"
-    title="Nothing held yet."
-    note="The cart and checkout — running on the signed-cookie session and the place_order guarantee — are a later step of the migration."
-  />
+
+<Base title="Held for you — DOKU">
+  <div class="narrow">
+    <div class="page-head">
+      <h1 class="serif">Held for you</h1>
+      <p>Nothing here is claimed until you confirm at checkout.</p>
+    </div>
+
+    {items.length > 0 ? (
+      <>
+        <div id="cart-items">
+          {items.map((p) => <CartRow product={p} removable />)}
+        </div>
+        <div class="cart-total">
+          <span>Total</span>
+          <span class="serif" id="cart-total">{money(total)}</span>
+        </div>
+        <a href="/checkout" class="btn-gold" style="display:block;text-align:center;text-decoration:none;">
+          <span>Proceed to checkout</span>
+        </a>
+      </>
+    ) : (
+      <div class="empty-state">
+        Nothing held yet. <a href="/collection">The collection is one click away.</a>
+      </div>
+    )}
+  </div>
 </Base>
+
+<script>
+  // Enhance "Release": remove the row without a full reload. Falls back to the
+  // plain form POST (303 → /cart) if JS is off or the request fails.
+  const container = document.getElementById('cart-items');
+  container?.querySelectorAll<HTMLFormElement>('.release-form').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await fetch('/api/cart', {
+          method: 'POST',
+          headers: { accept: 'application/json' },
+          body: new FormData(form),
+        });
+        if (!res.ok) throw new Error('release failed');
+        const data = await res.json();
+        form.closest('.cart-row')?.remove();
+        // Update the header badge; reload to recompute the total (and empty state).
+        const badge = document.getElementById('cart-count-desktop');
+        if (badge) {
+          badge.textContent = String(data.count);
+          badge.hidden = data.count === 0;
+        }
+        window.location.reload();
+      } catch {
+        form.submit();
+      }
+    });
+  });
+</script>

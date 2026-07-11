@@ -1,0 +1,183 @@
+---
+import Base from '../layouts/Base.astro';
+import CartRow from '../components/CartRow.astro';
+import { fetchProducts } from '../lib/products';
+import { money } from '../lib/format';
+import { CART_COOKIE, decodeCart } from '../lib/cart';
+import { serverEnv } from '../lib/env';
+
+const secret = serverEnv(Astro.locals, 'CART_SECRET');
+const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
+const products = await fetchProducts();
+const byId = new Map(products.map((p) => [p.sku, p]));
+const items = skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
+const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);
+const skuList = items.map((p) => p.sku);
+---
+
+<Base title="Claim these objects — DOKU">
+  <div class="narrow">
+    {items.length === 0 ? (
+      <div class="empty-state">
+        Nothing held to check out. <a href="/collection">Browse the collection.</a>
+      </div>
+    ) : (
+      <>
+        <div class="checkout-steps">
+          <div class="checkout-step active"><span class="step-num serif">1</span>Review</div>
+          <div class="checkout-step active"><span class="step-num serif">2</span>Ship to</div>
+          <div class="checkout-step"><span class="step-num serif">3</span>Confirm</div>
+        </div>
+
+        <div class="page-head">
+          <h1 class="serif">Claim these objects</h1>
+          <p>Once confirmed, each listing below closes for good.</p>
+        </div>
+
+        <div>{items.map((p) => <CartRow product={p} />)}</div>
+        <div class="cart-total" style="margin-bottom:36px;">
+          <span>Total</span><span class="serif">{money(total)}</span>
+        </div>
+
+        <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)}>
+          <fieldset>
+            <legend>Shipping to</legend>
+            <div class="form-group"><label for="full-name">Full name</label><input id="full-name" name="fullName" required autocomplete="name" /></div>
+            <div class="form-group"><label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" /></div>
+            <div class="form-group"><label for="address">Address</label><input id="address" name="address" required autocomplete="street-address" /></div>
+            <div class="form-row">
+              <div class="form-group"><label for="city">City</label><input id="city" name="city" required autocomplete="address-level2" /></div>
+              <div class="form-group"><label for="postcode">Postcode</label><input id="postcode" name="postcode" required autocomplete="postal-code" /></div>
+            </div>
+            <div class="form-group"><label for="country">Country</label><input id="country" name="country" required autocomplete="country-name" /></div>
+          </fieldset>
+          <fieldset>
+            <legend>Payment</legend>
+            <p class="fine-print">Payment opens in a secure Razorpay window — card, UPI, or netbanking, charged in INR. DOKU never sees or stores your card details.</p>
+          </fieldset>
+          <button class="btn-gold" type="submit" id="checkout-submit" style="margin-top:32px;"><span>Confirm the claim</span></button>
+          <div id="checkout-result" class="claim-sub" style="margin-top:14px;"></div>
+        </form>
+      </>
+    )}
+  </div>
+</Base>
+
+<script>
+  import { createClient } from '@supabase/supabase-js';
+
+  const form = document.getElementById('checkout-form') as HTMLFormElement | null;
+  if (form) {
+    const supabase = createClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+      { auth: { persistSession: false } },
+    );
+
+    // supabase-js puts non-2xx Edge Function bodies on `error`, not `data`.
+    // Unwrap so business errors (e.g. an item taken first) surface their JSON.
+    async function invokeFn(name: string, body: unknown) {
+      const { data, error } = await supabase.functions.invoke(name, { body });
+      if (error) {
+        let payload: any = null;
+        try { payload = await (error as any).context.json(); } catch { /* no body */ }
+        return { data: payload, failed: true };
+      }
+      return { data, failed: false };
+    }
+
+    // Razorpay Checkout is loaded on demand — only shoppers who reach payment
+    // pull the script.
+    let razorpayReady: Promise<void> | null = null;
+    function loadRazorpay(): Promise<void> {
+      if ((window as any).Razorpay) return Promise.resolve();
+      if (razorpayReady) return razorpayReady;
+      razorpayReady = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        s.onload = () => resolve();
+        s.onerror = () => { razorpayReady = null; reject(new Error('razorpay-load')); };
+        document.head.appendChild(s);
+      });
+      return razorpayReady;
+    }
+
+    const submitBtn = document.getElementById('checkout-submit') as HTMLButtonElement;
+    const submitSpan = submitBtn.querySelector('span');
+    const resultEl = document.getElementById('checkout-result');
+    const reReady = () => { submitBtn.disabled = false; if (submitSpan) submitSpan.textContent = 'Confirm the claim'; };
+    const skus: string[] = JSON.parse(form.dataset.skus || '[]');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+      const data = new FormData(form);
+      const buyer = {
+        full_name: data.get('fullName'), email: data.get('email'),
+        address: data.get('address'), city: data.get('city'),
+        postcode: data.get('postcode'), country: data.get('country'),
+      };
+      submitBtn.disabled = true;
+      if (submitSpan) submitSpan.textContent = 'Confirming…';
+      if (resultEl) resultEl.textContent = '';
+
+      try {
+        // 1. Server computes the INR amount from catalog prices (never trusted
+        //    from the client) and creates the Razorpay order.
+        const { data: order } = await invokeFn('razorpay-create-order', { skus });
+        if (!order || order.error || !order.order_id) throw new Error((order && order.error) || 'order');
+
+        // 2. Open Razorpay Checkout.
+        await loadRazorpay();
+        const rzp = new (window as any).Razorpay({
+          key: order.key_id,
+          amount: order.amount,
+          currency: order.currency,
+          order_id: order.order_id,
+          name: 'DOKU',
+          description: skus.join(', ').slice(0, 255),
+          prefill: { name: buyer.full_name, email: buyer.email },
+          theme: { color: '#B08D57' },
+          modal: { ondismiss: () => { if (resultEl) resultEl.textContent = 'Payment closed. Nothing was charged.'; reReady(); } },
+          // 3. Server verifies the signature + payment BEFORE anything reserves.
+          handler: async (response: any) => {
+            if (submitSpan) submitSpan.textContent = 'Confirming…';
+            const { data: result } = await invokeFn('razorpay-verify-payment', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              skus, buyer,
+            });
+            if (!result || result.error || !result.order_code) {
+              if (resultEl) resultEl.textContent = result && result.error === 'paid_but_unreserved'
+                ? 'This was claimed first — your payment will be refunded. Nothing is held.'
+                : 'Payment received; we couldn’t confirm the hold. We’ll email you.';
+              reReady();
+              return;
+            }
+            // Reserved server-side. Hand the confirmation page a signed cookie
+            // and empty the cart, then go.
+            await fetch('/api/checkout-complete', {
+              method: 'POST',
+              body: new URLSearchParams({ order_code: result.order_code, full_name: String(buyer.full_name ?? '') }),
+            });
+            const gtag = (window as any).gtag;
+            if (typeof gtag === 'function') {
+              gtag('event', 'purchase', { transaction_id: result.order_code, currency: 'USD' });
+            }
+            window.location.href = '/confirmation';
+          },
+        });
+        rzp.on('payment.failed', () => { if (resultEl) resultEl.textContent = 'Payment didn’t go through. Nothing was charged.'; reReady(); });
+        if (submitSpan) submitSpan.textContent = 'Opening payment…';
+        rzp.open();
+      } catch (err) {
+        const msg = (err as Error)?.message || '';
+        if (resultEl) resultEl.textContent = msg.includes('no longer available')
+          ? 'One of these was claimed by someone else first. Return to your cart and try again.'
+          : "Couldn't open payment. Try again in a moment.";
+        reReady();
+      }
+    });
+  }
+</script>

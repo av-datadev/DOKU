@@ -1,0 +1,31 @@
+---
+import type { Product } from '../lib/products';
+import Frame from './Frame.astro';
+import { money } from '../lib/format';
+
+// One row in the cart / checkout review / confirmation list. "Release" removes
+// the item via a plain form POST to /api/cart (303 back), so it works without
+// JS; the cart page enhances it to update in place.
+interface Props {
+  product: Product;
+  removable?: boolean;
+}
+const { product: p, removable = false } = Astro.props;
+---
+
+<div class="cart-row" data-sku={p.sku}>
+  <Frame product={p} />
+  <div class="meta">
+    <h4 class="serif">{p.title}</h4>
+    <div class="origin">{p.origin} — N° {p.sku}</div>
+  </div>
+  <div class="price serif">{money(p.price)}</div>
+  {removable && (
+    <form method="POST" action="/api/cart" class="release-form">
+      <input type="hidden" name="action" value="release" />
+      <input type="hidden" name="sku" value={p.sku} />
+      <input type="hidden" name="redirect" value="/cart" />
+      <button class="remove" type="submit">Release</button>
+    </form>
+  )}
+</div>
