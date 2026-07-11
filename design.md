@@ -6,7 +6,7 @@
 
 ## Brand Identity
 
-**What DOKU is:** A premium marketplace for one-of-one objects. Every item exists exactly once — sold once, never restocked. The design must make that scarcity feel real, not marketed.
+**What DOKU is:** A premium marketplace for one-of-one objects. Every item comes with its own rarity — sold once, may never be restocked. The design must make that scarcity feel real, not marketed.
 
 **Emotional register:** Museum-quiet. The silence of a rare object in a lit case. No bounce, no urgency, no sale energy.
 

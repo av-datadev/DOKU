@@ -1,6 +1,6 @@
 # DOKU
 
-A marketplace for one-of-one objects — every item is genuinely unique, sold once, never restocked.
+A marketplace for one-of-one objects — every item is genuinely unique and rare in its own way.
 
 ---
 
