@@ -3,10 +3,10 @@ import Base from '../../layouts/Base.astro';
 import Frame from '../../components/Frame.astro';
 import ItemCard from '../../components/ItemCard.astro';
 import { fetchProducts, fetchProduct } from '../../lib/products';
-import { money } from '../../lib/format';
 import { WEB3FORMS_KEY } from '../../lib/forms';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
 import { serverEnv } from '../../lib/env';
+import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
 
 // Full object page — SSR per sku, real indexable URL. Port of viewProduct().
 const { sku } = Astro.params;
@@ -38,6 +38,9 @@ const originLine = isComingSoon
 
 const allProducts = await fetchProducts();
 const related = allProducts.filter((x) => x.status === 'available' && x.sku !== p.sku).slice(0, 3);
+
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 ---
 
 <Base title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
@@ -57,7 +60,7 @@ const related = allProducts.filter((x) => x.status === 'available' && x.sku !== 
       {isAvailable && (
         <>
           <div class="price-row">
-            <span class="price serif">{money(p.price)}</span>
+            <span class="price serif" data-usd={p.price ?? undefined}>{formatMoney(p.price, currency, rates)}</span>
             <span class="price-note">No reproductions</span>
           </div>
           <form id="hold-form" method="POST" action="/api/cart">
@@ -148,7 +151,7 @@ const related = allProducts.filter((x) => x.status === 'available' && x.sku !== 
         <h2 class="serif">You may not see these again</h2>
       </section>
       <div class="grid wrap" style="padding:0; margin-bottom:100px;">
-        {related.map((r) => <ItemCard product={r} held={held.has(r.sku)} />)}
+        {related.map((r) => <ItemCard product={r} held={held.has(r.sku)} currency={currency} rates={rates} />)}
       </div>
     </>
   )}

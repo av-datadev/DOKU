@@ -2,9 +2,9 @@
 import Base from '../layouts/Base.astro';
 import CartRow from '../components/CartRow.astro';
 import { fetchProducts } from '../lib/products';
-import { money } from '../lib/format';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
+import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
@@ -13,6 +13,11 @@ const byId = new Map(products.map((p) => [p.sku, p]));
 const items = skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
 const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);
 const skuList = items.map((p) => p.sku);
+
+// Display only — the real charge is computed server-side in INR from catalog
+// USD prices by razorpay-create-order, never from what's shown here.
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 ---
 
 <Base title="Claim these objects — DOKU">
@@ -34,9 +39,9 @@ const skuList = items.map((p) => p.sku);
           <p>Once confirmed, each listing below closes for good.</p>
         </div>
 
-        <div>{items.map((p) => <CartRow product={p} />)}</div>
+        <div>{items.map((p) => <CartRow product={p} currency={currency} rates={rates} />)}</div>
         <div class="cart-total" style="margin-bottom:36px;">
-          <span>Total</span><span class="serif">{money(total)}</span>
+          <span>Total</span><span class="serif" data-usd={total}>{formatMoney(total, currency, rates)}</span>
         </div>
 
         <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)}>

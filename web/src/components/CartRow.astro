@@ -1,7 +1,7 @@
 ---
 import type { Product } from '../lib/products';
 import Frame from './Frame.astro';
-import { money } from '../lib/format';
+import { formatMoney, FALLBACK_RATES, type CurrencyCode } from '../lib/currency';
 
 // One row in the cart / checkout review / confirmation list. "Release" removes
 // the item via a plain form POST to /api/cart (303 back), so it works without
@@ -9,8 +9,10 @@ import { money } from '../lib/format';
 interface Props {
   product: Product;
   removable?: boolean;
+  currency?: CurrencyCode;
+  rates?: Record<string, number>;
 }
-const { product: p, removable = false } = Astro.props;
+const { product: p, removable = false, currency = 'USD', rates = FALLBACK_RATES } = Astro.props;
 ---
 
 <div class="cart-row" data-sku={p.sku}>
@@ -19,7 +21,7 @@ const { product: p, removable = false } = Astro.props;
     <h4 class="serif">{p.title}</h4>
     <div class="origin">{p.origin} — N° {p.sku}</div>
   </div>
-  <div class="price serif">{money(p.price)}</div>
+  <div class="price serif" data-usd={p.price ?? undefined}>{formatMoney(p.price, currency, rates)}</div>
   {removable && (
     <form method="POST" action="/api/cart" class="release-form">
       <input type="hidden" name="action" value="release" />

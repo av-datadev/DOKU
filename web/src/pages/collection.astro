@@ -4,6 +4,7 @@ import ItemCard from '../components/ItemCard.astro';
 import { fetchProducts } from '../lib/products';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
+import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 const products = await fetchProducts();
 const available = products.filter((p) => p.status === 'available');
@@ -12,6 +13,11 @@ const soon = products.filter((p) => p.status === 'coming-soon');
 // "Held for you" state, from the signed cart cookie.
 const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
 const held = new Set(await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET')));
+
+// Display currency — filters below always operate on the raw USD price,
+// same as the source (PRICE_RANGES never changed with currentCurrency).
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 
 // Origin pills: distinct origins, shown by their first segment (city).
 const origins = [...new Set(available.map((p) => p.origin).filter(Boolean))] as string[];
@@ -58,7 +64,7 @@ const PRICE_PILLS = [
 
   <div class="grid wrap grid-filtered" id="collection-grid" style="padding:0; margin-bottom:100px;">
     {available.length
-      ? available.map((p) => <ItemCard product={p} held={held.has(p.sku)} />)
+      ? available.map((p) => <ItemCard product={p} held={held.has(p.sku)} currency={currency} rates={rates} />)
       : <div class="empty-state">Nothing available right now. Check <a href="/archive">the archive</a>.</div>}
     <div class="empty-state" id="no-matches" style="display:none;">
       Nothing matches. <button type="button" id="clear-inline">Clear filters.</button>
@@ -73,7 +79,7 @@ const PRICE_PILLS = [
         <p>Directions we're chasing. Not yet found, not yet priced.</p>
       </section>
       <div class="grid wrap" style="padding:0; margin-bottom:100px;">
-        {soon.map((p) => <ItemCard product={p} />)}
+        {soon.map((p) => <ItemCard product={p} currency={currency} rates={rates} />)}
       </div>
     </>
   )}

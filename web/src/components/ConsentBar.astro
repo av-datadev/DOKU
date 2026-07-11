@@ -1,0 +1,32 @@
+---
+// GA4 consent bar. Analytics only loads if the visitor clicks Accept — see the
+// gtag stub in Base.astro's <head>. Decline (or ignoring the bar) means no GA
+// request ever fires. No storage (Hard rule 3): reappears each session.
+---
+
+<div id="consent-bar" class="consent-bar">
+  <p>
+    We track visits, lightly — only once you say yes. Messages you send us route through a
+    delivery service, not a database we query. <a href="/privacy">Read the details</a>.
+  </p>
+  <div class="consent-actions">
+    <button id="consent-decline" class="consent-btn consent-btn-decline" type="button">Decline</button>
+    <button id="consent-accept" class="consent-btn consent-btn-accept" type="button">Accept</button>
+  </div>
+</div>
+
+<script>
+  const bar = document.getElementById('consent-bar');
+  const accept = document.getElementById('consent-accept');
+  const decline = document.getElementById('consent-decline');
+  if (bar) {
+    setTimeout(() => bar.classList.add('show'), 900);
+    accept?.addEventListener('click', () => {
+      (window as any).loadAnalytics?.();
+      bar.classList.remove('show');
+    });
+    decline?.addEventListener('click', () => {
+      bar.classList.remove('show');
+    });
+  }
+</script>

@@ -2,9 +2,9 @@
 import Base from '../layouts/Base.astro';
 import CartRow from '../components/CartRow.astro';
 import { fetchProducts } from '../lib/products';
-import { money } from '../lib/format';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
+import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
@@ -13,6 +13,9 @@ const byId = new Map(products.map((p) => [p.sku, p]));
 // Only render items that still exist; keep the cart order.
 const items = skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
 const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);
+
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 ---
 
 <Base title="Held for you — DOKU">
@@ -25,11 +28,11 @@ const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);
     {items.length > 0 ? (
       <>
         <div id="cart-items">
-          {items.map((p) => <CartRow product={p} removable />)}
+          {items.map((p) => <CartRow product={p} removable currency={currency} rates={rates} />)}
         </div>
         <div class="cart-total">
           <span>Total</span>
-          <span class="serif" id="cart-total">{money(total)}</span>
+          <span class="serif" id="cart-total" data-usd={total}>{formatMoney(total, currency, rates)}</span>
         </div>
         <a href="/checkout" class="btn-gold" style="display:block;text-align:center;text-decoration:none;">
           <span>Proceed to checkout</span>

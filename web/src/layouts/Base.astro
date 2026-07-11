@@ -4,8 +4,11 @@ import '../styles/shell.css';
 import '../styles/catalog.css';
 import '../styles/item.css';
 import '../styles/checkout.css';
+import '../styles/bars.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import RegionBar from '../components/RegionBar.astro';
+import ConsentBar from '../components/ConsentBar.astro';
 
 interface Props {
   title?: string;
@@ -25,6 +28,25 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="theme-color" content="#0E0C0A" />
+    <script is:inline>
+      // GA4 stub — defined but never loaded/configured until the visitor
+      // clicks Accept on the consent bar (see ConsentBar.astro). Decline, or
+      // ignoring the bar, means no GA request ever fires.
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      const GA_ID = 'G-S1MKLYC4QS';
+      function loadAnalytics() {
+        if (window._gaLoaded) return;
+        window._gaLoaded = true;
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', GA_ID, { send_page_view: false });
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -38,5 +60,7 @@ const {
       <slot />
     </main>
     <Footer />
+    <RegionBar />
+    <ConsentBar />
   </body>
 </html>

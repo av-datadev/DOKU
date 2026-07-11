@@ -4,6 +4,7 @@ import CartRow from '../components/CartRow.astro';
 import { fetchProducts } from '../lib/products';
 import { LAST_ORDER_COOKIE, decodeOrder } from '../lib/order';
 import { serverEnv } from '../lib/env';
+import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const order = await decodeOrder(Astro.cookies.get(LAST_ORDER_COOKIE)?.value, secret);
@@ -14,6 +15,9 @@ if (order) {
   const byId = new Map(products.map((p) => [p.sku, p]));
   items = order.skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
 }
+
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 ---
 
 <Base title="Held. Only for you. — DOKU">
@@ -27,7 +31,7 @@ if (order) {
         </p>
         <div class="order-id">Order {order.code}</div>
         <div class="confirm-list">
-          {items.map((p) => <CartRow product={p} />)}
+          {items.map((p) => <CartRow product={p} currency={currency} rates={rates} />)}
         </div>
         <a href="/" class="btn-gold" style="display:block;text-align:center;text-decoration:none;">
           <span>Return to DOKU</span>

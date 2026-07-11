@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { fetchProducts } from '../lib/products';
+import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 // Server-rendered on Cloudflare Workers. This proves the real path: SSR pulls
 // the live catalog from Supabase (falling back to FALLBACK_PRODUCTS on failure)
@@ -8,6 +9,8 @@ import { fetchProducts } from '../lib/products';
 // whole reason for leaving hash routing behind.
 const products = await fetchProducts();
 const available = products.filter((p) => p.status === 'available');
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+const rates = await fetchRates();
 ---
 
 <Base>
@@ -34,8 +37,8 @@ const available = products.filter((p) => p.status === 'available');
             </p>
           </div>
           {p.price != null && (
-            <span style="color:var(--gold);white-space:nowrap;font-variant-numeric:tabular-nums;">
-              ${p.price.toLocaleString()}
+            <span style="color:var(--gold);white-space:nowrap;font-variant-numeric:tabular-nums;" data-usd={p.price}>
+              {formatMoney(p.price, currency, rates)}
             </span>
           )}
         </article>

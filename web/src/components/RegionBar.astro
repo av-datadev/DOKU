@@ -1,0 +1,76 @@
+---
+// Region → currency picker, shown on every visit — deliberately not persisted
+// (Hard rule 3: no localStorage; and per the source's own comment, the bar is
+// meant to reappear each session, distinct from the currency cookie itself,
+// which persists so a chosen currency survives navigation).
+const REGIONS = [
+  { code: 'IN', name: 'India', cur: 'INR' },
+  { code: 'US', name: 'United States', cur: 'USD' },
+  { code: 'GB', name: 'United Kingdom', cur: 'GBP' },
+  { code: 'JP', name: 'Japan', cur: 'JPY' },
+  { code: 'DE', name: 'Germany', cur: 'EUR' },
+  { code: 'FR', name: 'France', cur: 'EUR' },
+  { code: 'IT', name: 'Italy', cur: 'EUR' },
+  { code: 'ES', name: 'Spain', cur: 'EUR' },
+  { code: 'NL', name: 'Netherlands', cur: 'EUR' },
+  { code: 'IE', name: 'Ireland', cur: 'EUR' },
+  { code: 'XX', name: 'Rest of the world', cur: 'USD' },
+];
+---
+
+<div id="region-bar" class="region-bar" data-regions={JSON.stringify(REGIONS)}>
+  <p>Set your region. We'll show prices in your currency.</p>
+  <div class="region-actions">
+    <div class="region-select-wrap"><select id="region-select" aria-label="Country or region"></select></div>
+    <button id="region-continue" class="region-btn" type="button">Continue</button>
+    <button id="region-close" class="region-close" type="button" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
+<script>
+  import { applyCurrency } from '../lib/currency-client';
+
+  const bar = document.getElementById('region-bar');
+  const sel = document.getElementById('region-select') as HTMLSelectElement | null;
+  const cont = document.getElementById('region-continue');
+  const close = document.getElementById('region-close');
+  if (bar && sel) {
+    const regions: { code: string; name: string; cur: string }[] = JSON.parse(bar.dataset.regions || '[]');
+    regions.forEach((r) => {
+      const o = document.createElement('option');
+      o.value = r.code;
+      o.textContent = r.name;
+      sel.appendChild(o);
+    });
+
+    const curFor = (code: string) => regions.find((r) => r.code === code)?.cur ?? 'USD';
+
+    // Best-effort guess so prices are right even if the bar is ignored.
+    function guessRegion(): string {
+      const lang = (navigator.language || '').split('-')[1];
+      if (lang && regions.some((r) => r.code === lang.toUpperCase())) return lang.toUpperCase();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (/Kolkata|Calcutta/.test(tz)) return 'IN';
+      if (/London/.test(tz)) return 'GB';
+      if (/Tokyo/.test(tz)) return 'JP';
+      if (/^America\//.test(tz)) return 'US';
+      if (/^Europe\//.test(tz)) return 'DE';
+      return 'XX';
+    }
+
+    const guess = guessRegion();
+    sel.value = guess;
+    // Apply up front so the guessed currency is showing before the bar appears
+    // — but only if the visitor hasn't already chosen a currency this session
+    // (the cookie from a prior page already reflects that choice; don't stomp it).
+    if (!document.cookie.includes('doku_currency=')) {
+      applyCurrency(curFor(guess));
+    }
+
+    sel.addEventListener('change', () => applyCurrency(curFor(sel.value)));
+    cont?.addEventListener('click', () => { applyCurrency(curFor(sel.value)); bar.classList.remove('show'); });
+    close?.addEventListener('click', () => bar.classList.remove('show'));
+
+    setTimeout(() => bar.classList.add('show'), 700);
+  }
+</script>

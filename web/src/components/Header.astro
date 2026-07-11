@@ -1,6 +1,7 @@
 ---
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
+import { CURRENCIES, SYMBOLS, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
 
 // Active nav state is computed server-side from the real route — no more
 // client-only #/hash matching.
@@ -12,18 +13,17 @@ const isActive = (href: string) => path === href || path.startsWith(href + '/');
 const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
 const cartCount = (await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET'))).length;
 
+// Currency choice lives in a plain (unsigned) cookie — it's display-only, never
+// a trust boundary: the real charge is always computed server-side from catalog
+// USD prices (razorpay-create-order), never from what the client claims. Reading
+// it here means the very first paint is already in the visitor's currency.
+const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
+
 const NAV = [
   { href: '/collection', label: 'The Collection' },
   { href: '/archive', label: 'The Archive' },
   { href: '/provenance', label: 'Provenance' },
   { href: '/inquire', label: 'Inquire' },
-];
-const CURRENCIES = [
-  { code: 'USD', symbol: '$' },
-  { code: 'EUR', symbol: '€' },
-  { code: 'GBP', symbol: '£' },
-  { code: 'INR', symbol: '₹' },
-  { code: 'JPY', symbol: '¥' },
 ];
 ---
 
@@ -38,15 +38,21 @@ const CURRENCIES = [
         aria-expanded="false"
         title="Prices convert at indicative rates"
       >
-        <span id="currency-label">USD</span>
+        <span id="currency-label">{currency}</span>
         <svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="currentColor" stroke-width="1.2">
           <polyline points="1,1 4.5,5 8,1" />
         </svg>
       </button>
       <div class="currency-dropdown" id="currency-dropdown" role="listbox">
-        {CURRENCIES.map((c, i) => (
-          <div class:list={['currency-option', { active: i === 0 }]} data-cur={c.code} role="option">
-            <span>{c.code}</span><span class="cur-symbol">{c.symbol}</span>
+        {CURRENCIES.map((code) => (
+          <div
+            class:list={['currency-option', { active: code === currency }]}
+            data-cur={code}
+            role="option"
+            aria-selected={code === currency}
+            tabindex="0"
+          >
+            <span>{code}</span><span class="cur-symbol">{SYMBOLS[code]}</span>
           </div>
         ))}
       </div>
@@ -73,10 +79,12 @@ const CURRENCIES = [
 </div>
 
 <script>
+  import { applyCurrency } from '../lib/currency-client';
+
   // Progressive enhancement for the shell. The header renders and links work
   // without JS; this only adds the scroll-shrink, the mobile drawer, and the
-  // currency dropdown toggle. (Actual currency conversion lands in a later
-  // migration step — for now selecting an option just updates the label.)
+  // currency dropdown (which reprices every [data-usd] element on the page
+  // in place — see lib/currency-client.ts).
   const header = document.getElementById('site-header');
   const onScroll = () => header?.classList.toggle('scrolled', window.scrollY > 8);
   onScroll();
@@ -93,7 +101,6 @@ const CURRENCIES = [
 
   const curBtn = document.getElementById('currency-btn');
   const curDrop = document.getElementById('currency-dropdown');
-  const curLabel = document.getElementById('currency-label');
   const toggleCur = (open?: boolean) => {
     const next = open ?? !curDrop?.classList.contains('open');
     curDrop?.classList.toggle('open', next);
@@ -101,13 +108,16 @@ const CURRENCIES = [
     curBtn?.setAttribute('aria-expanded', String(next));
   };
   curBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleCur(); });
+
+  const chooseCurrency = async (opt: HTMLElement) => {
+    if (!opt.dataset.cur) return;
+    await applyCurrency(opt.dataset.cur);
+    toggleCur(false);
+  };
   curDrop?.querySelectorAll<HTMLElement>('.currency-option').forEach((opt) => {
-    opt.addEventListener('click', () => {
-      curDrop.querySelectorAll('.currency-option').forEach((o) => o.classList.remove('active'));
-      opt.classList.add('active');
-      if (curLabel) curLabel.textContent = opt.dataset.cur ?? 'USD';
-      toggleCur(false);
-      // TODO(currency step): call setCurrency(opt.dataset.cur) to reprice.
+    opt.addEventListener('click', () => chooseCurrency(opt));
+    opt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chooseCurrency(opt); }
     });
   });
   document.addEventListener('click', () => toggleCur(false));

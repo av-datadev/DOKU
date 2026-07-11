@@ -1,16 +1,19 @@
 ---
 import type { Product } from '../lib/products';
 import Frame from './Frame.astro';
-import { money } from '../lib/format';
+import { formatMoney, FALLBACK_RATES, type CurrencyCode } from '../lib/currency';
 
 // Catalog card. Merges the old itemCard()/comingSoonCard() into one component
 // that branches on status. data-origin / data-price feed the collection filters
-// (client-side, over SSR-rendered cards — no innerHTML rebuild).
+// (client-side, over SSR-rendered cards — no innerHTML rebuild). data-usd on
+// the price span feeds the currency switcher's in-place repaint.
 interface Props {
   product: Product;
   held?: boolean;
+  currency?: CurrencyCode;
+  rates?: Record<string, number>;
 }
-const { product: p, held = false } = Astro.props;
+const { product: p, held = false, currency = 'USD', rates = FALLBACK_RATES } = Astro.props;
 const isSoon = p.status === 'coming-soon';
 ---
 
@@ -27,8 +30,8 @@ const isSoon = p.status === 'coming-soon';
     {isSoon ? 'Direction confirmed — object pending' : `Found in ${p.origin} — 1 of 1`}
   </div>
   <div class="item-bottom">
-    <span class="item-price serif" style={isSoon ? 'color:var(--muted);' : ''}>
-      {isSoon ? '—' : money(p.price)}
+    <span class="item-price serif" style={isSoon ? 'color:var(--muted);' : ''} data-usd={isSoon ? undefined : p.price ?? undefined}>
+      {isSoon ? '—' : formatMoney(p.price, currency, rates)}
     </span>
     <span class="item-status" style={isSoon ? 'color:var(--muted);' : ''}>
       {isSoon ? 'Coming soon' : held ? 'Held for you' : 'Available'}
