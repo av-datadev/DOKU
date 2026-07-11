@@ -1,52 +1,100 @@
 ---
 import Base from '../layouts/Base.astro';
+import ItemCard from '../components/ItemCard.astro';
+import ArchiveCard from '../components/ArchiveCard.astro';
 import { fetchProducts } from '../lib/products';
-import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { CART_COOKIE, decodeCart } from '../lib/cart';
+import { serverEnv } from '../lib/env';
 
-// Server-rendered on Cloudflare Workers. This proves the real path: SSR pulls
-// the live catalog from Supabase (falling back to FALLBACK_PRODUCTS on failure)
-// before the HTML is sent — so /item/[sku] pages will be fully indexable, the
-// whole reason for leaving hash routing behind.
+// SSR pulls the live catalog from Supabase (falling back to FALLBACK_PRODUCTS
+// on failure) before the HTML is sent.
 const products = await fetchProducts();
 const available = products.filter((p) => p.status === 'available');
+const comingSoon = products.filter((p) => p.status === 'coming-soon');
+const claimed = products.filter((p) => p.status === 'claimed');
+
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
 const rates = await fetchRates();
+
+const cartValue = Astro.cookies.get(CART_COOKIE)?.value;
+const held = new Set(await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SECRET')));
+
+const MARQUEE_WORDS = ['ONE OF ONE', 'NOT REPRODUCED', 'FOUND ONCE', 'NEVER RESTOCKED', 'HELD ONCE', 'THEN GONE'];
+const marquee = [...MARQUEE_WORDS, ...MARQUEE_WORDS];
 ---
 
 <Base>
-  <div style="max-width:64rem;margin:0 auto;padding:clamp(3rem,8vw,7rem) 1.5rem;">
-    <p style="letter-spacing:.28em;text-transform:uppercase;font-size:.72rem;color:var(--gold);margin:0 0 1.5rem;">
-      Astro migration — scaffold
-    </p>
-    <h1 style="font-size:clamp(2.4rem,6vw,4rem);line-height:1.05;margin:0 0 1rem;">
-      One object. Sold once.
-    </h1>
-    <p style="color:var(--muted);max-width:34rem;font-size:1.05rem;line-height:1.6;">
-      This is the new Astro + React skeleton. Below is the live catalog, fetched
-      from Supabase during server render — the same backend the current site
-      uses, untouched.
-    </p>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-brand">DOKU</div>
+      <div class="hero-tagline">Found. Not made.</div>
+      <h1 class="hero-headline" style="margin-top:36px;">Only one.<br /><em>So are you.</em></h1>
+      <a href="/collection" class="hero-cta"><span>Explore the collection</span></a>
+    </div>
+    <div class="hero-scroll" aria-hidden="true">
+      <div class="hero-scroll-line"></div>
+      <svg width="11" height="7" viewBox="0 0 11 7" fill="none">
+        <path d="M1 1L5.5 5.5L10 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </div>
+  </section>
 
-    <section style="margin-top:3.5rem;border-top:1px solid var(--hairline);">
-      {available.map((p) => (
-        <article style="padding:1.5rem 0;border-bottom:1px solid var(--hairline);display:flex;justify-content:space-between;gap:1.5rem;align-items:baseline;">
-          <div>
-            <h2 style="font-size:1.5rem;margin:0 0 .35rem;">{p.title}</h2>
-            <p style="color:var(--muted);margin:0;font-size:.9rem;">
-              {p.origin}{p.year ? ` · ${p.year}` : ''} · DOKU N° {p.sku}
-            </p>
-          </div>
-          {p.price != null && (
-            <span style="color:var(--gold);white-space:nowrap;font-variant-numeric:tabular-nums;" data-usd={p.price}>
-              {formatMoney(p.price, currency, rates)}
-            </span>
-          )}
-        </article>
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      {marquee.map((word) => (
+        <>
+          <span>{word}</span><span class="gold">·</span>
+        </>
       ))}
-    </section>
-
-    <p style="margin-top:2.5rem;color:var(--claimed);font-size:.85rem;">
-      {available.length} available · rendered server-side
-    </p>
+    </div>
   </div>
+
+  <div class="manifesto">
+    <p>"We do not manufacture. We do not commission. We go looking — and when we find the one made in a way that will not repeat, we bring it back exactly as it was."</p>
+  </div>
+
+  {available.length > 0 && (
+    <>
+      <section class="section-head">
+        <div class="eyebrow">Currently held</div>
+        <h2 class="serif">Available now</h2>
+        <p>Every piece below exists once — same as the people who keep them. Once it's gone, this page forgets it was ever here.</p>
+      </section>
+      <div class="carousel wrap" style="padding:0; margin-bottom:100px;">
+        <div class="carousel-track">
+          {available.map((p) => <ItemCard product={p} held={held.has(p.sku)} currency={currency} rates={rates} />)}
+        </div>
+      </div>
+      <div style="text-align:center; padding:0 0 80px;">
+        <a href="/collection" class="more">View the full collection →</a>
+      </div>
+    </>
+  )}
+
+  {comingSoon.length > 0 && (
+    <>
+      <section class="section-head">
+        <div class="eyebrow">Still being found</div>
+        <h2 class="serif">Coming soon</h2>
+        <p>Directions we're chasing. Not yet found, not yet priced.</p>
+      </section>
+      <div class="grid wrap" style="padding:0; margin-bottom:100px;">
+        {comingSoon.map((p) => <ItemCard product={p} currency={currency} rates={rates} />)}
+      </div>
+    </>
+  )}
+
+  {claimed.length > 0 && (
+    <>
+      <section class="section-head">
+        <div class="eyebrow">No longer available</div>
+        <h2 class="serif">The archive</h2>
+        <p>Once held by DOKU. Now held by someone else — and not by anyone after them.</p>
+      </section>
+      <div class="archive-grid wrap" style="padding:0; margin-bottom:100px;">
+        {claimed.slice(0, 4).map((p) => <ArchiveCard product={p} />)}
+      </div>
+    </>
+  )}
 </Base>

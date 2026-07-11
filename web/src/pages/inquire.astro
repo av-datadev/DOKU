@@ -1,11 +1,66 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
+import { WEB3FORMS_KEY } from '../lib/forms';
 ---
+
 <Base title="Inquire — DOKU">
-  <Placeholder
-    eyebrow="Inquire"
-    title="Reach a person, not a form processor."
-    note="The inquiry form is being ported. It will send to a real inbox, disclosed inline — the same behaviour as the current site."
-  />
+  <div class="narrow">
+    <div class="page-head">
+      <div class="eyebrow">Reach us</div>
+      <h1 class="serif">Inquire</h1>
+      <p>Tell us what you're looking for. We may already be looking for it too.</p>
+    </div>
+    <form id="inquire-form" novalidate>
+      <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
+      <input type="hidden" name="subject" value="DOKU — New Inquiry" />
+      <input type="hidden" name="from_name" value="DOKU Inquiry Form" />
+      <input type="checkbox" name="botcheck" style="display:none" />
+      <div class="form-group"><label for="iq-name">Name</label><input id="iq-name" name="name" required autocomplete="name" /></div>
+      <div class="form-group"><label for="iq-email">Email</label><input id="iq-email" name="email" type="email" required autocomplete="email" /></div>
+      <div class="form-group"><label for="iq-message">What are you looking for?</label><textarea id="iq-message" name="message" required></textarea></div>
+      <p class="fine-print">Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
+      <button class="btn-gold" type="submit"><span>Send</span></button>
+    </form>
+    <div id="inquire-result" style="margin-top:26px; color:var(--muted); font-size:14px;"></div>
+  </div>
 </Base>
+
+<script>
+  const form = document.getElementById('inquire-form') as HTMLFormElement | null;
+  const resultEl = document.getElementById('inquire-result');
+  if (form && resultEl) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+
+      const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      const span = btn.querySelector('span') as HTMLElement;
+      const original = span.textContent;
+      btn.disabled = true;
+      span.textContent = 'Sending…';
+      resultEl.textContent = '';
+
+      try {
+        const res = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: new FormData(form),
+        });
+        const data = await res.json();
+        if (data.success) {
+          resultEl.textContent = 'Message received. We read everything ourselves.';
+          form.reset();
+          const gtag = (window as any).gtag;
+          if (typeof gtag === 'function') gtag('event', 'generate_lead', { form_id: form.id });
+        } else {
+          resultEl.textContent = data.message || "Didn't send. Try again.";
+        }
+      } catch {
+        resultEl.textContent = "Couldn't reach us. Try again in a moment.";
+      } finally {
+        btn.disabled = false;
+        span.textContent = original;
+      }
+    });
+  }
+</script>

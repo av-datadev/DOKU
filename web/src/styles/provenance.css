@@ -1,0 +1,71 @@
+/* Provenance page — editorial hero, chapter grid, stats, closing statement.
+   Ported from the single-file site's CSS. */
+
+.prov-hero {
+  min-height: 70vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 120px 48px 80px; position: relative;
+}
+.prov-hero h1 {
+  font-family: 'Fraunces', serif; font-weight: 200; font-style: italic;
+  font-size: clamp(44px, 7vw, 96px); line-height: 1.08; color: var(--ivory);
+  max-width: 900px; margin: 24px auto 0;
+}
+.prov-hero .prov-rule {
+  width: 1px; height: 80px; background: linear-gradient(to bottom, transparent, var(--gold), transparent);
+  margin: 48px auto 0;
+}
+.prov-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--hairline); border: 1px solid var(--hairline);
+  margin: 48px 0;
+}
+.prov-stat { background: var(--bg-card); padding: 36px 28px; text-align: center; }
+.prov-stat-num {
+  font-family: 'Fraunces', serif; font-weight: 200; font-size: clamp(36px, 5vw, 60px);
+  color: var(--ivory); display: block; margin-bottom: 8px;
+}
+.prov-stat-label { font-family: 'Archivo', sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--claimed); }
+
+.prov-chapter {
+  display: grid; grid-template-columns: 200px 1fr;
+  gap: 80px; padding: 80px 0; border-top: 1px solid var(--hairline);
+  max-width: 960px; margin: 0 auto;
+}
+.prov-chapter-no {
+  font-family: 'Archivo', sans-serif; font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--claimed); padding-top: 6px;
+}
+.prov-chapter-body h2 {
+  font-family: 'Fraunces', serif; font-weight: 300;
+  font-size: clamp(26px, 3.5vw, 40px); margin-bottom: 28px; line-height: 1.2;
+}
+.prov-chapter-body p { font-size: 15px; line-height: 1.95; color: var(--muted); margin-bottom: 18px; }
+.prov-chapter-body p:last-child { margin-bottom: 0; }
+.prov-pull {
+  font-family: 'Fraunces', serif; font-style: italic; font-weight: 200;
+  font-size: clamp(20px, 2.5vw, 28px); color: var(--ivory); line-height: 1.5;
+  border-left: 1px solid var(--gold); padding-left: 28px;
+  margin: 36px 0;
+}
+.prov-criteria { list-style: none; padding: 0; margin: 28px 0 0; display: flex; flex-direction: column; gap: 16px; }
+.prov-criteria li { display: flex; gap: 16px; align-items: flex-start; font-size: 14px; line-height: 1.75; color: var(--muted); }
+.prov-criteria li::before { content: '—'; color: var(--gold); flex-shrink: 0; margin-top: 1px; }
+
+.prov-closing {
+  text-align: center; padding: 100px 48px;
+  border-top: 1px solid var(--hairline);
+  max-width: 720px; margin: 0 auto;
+}
+.prov-closing p {
+  font-family: 'Fraunces', serif; font-weight: 200; font-style: italic;
+  font-size: clamp(22px, 3vw, 34px); line-height: 1.6; color: var(--ivory);
+}
+.prov-closing .eyebrow { margin-bottom: 28px; }
+
+@media (max-width: 700px) {
+  .prov-chapter { grid-template-columns: 1fr; gap: 20px; }
+  .prov-stats { grid-template-columns: 1fr; }
+  .prov-hero { padding: 100px 24px 60px; }
+  .prov-closing { padding: 80px 24px; }
+}

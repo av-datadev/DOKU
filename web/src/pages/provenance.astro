@@ -1,11 +1,98 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
+import { fetchProducts } from '../lib/products';
+
+const products = await fetchProducts();
+const totalFound = products.length;
+const totalClaimed = products.filter((p) => p.status === 'claimed').length;
+const totalSourcing = products.filter((p) => p.status === 'coming-soon').length;
+const claimedWord = totalClaimed === 0 ? 'none' : totalClaimed === 1 ? 'one' : 'all of them';
 ---
+
 <Base title="Provenance — DOKU">
-  <Placeholder
-    eyebrow="Provenance"
-    title="How we know what we know."
-    note="The account of where each object came from, and how it was verified, is being ported here."
-  />
+  <div class="prov-hero">
+    <div class="eyebrow">Our practice</div>
+    <h1>We do not make things.<br />We find them.</h1>
+    <div class="prov-rule"></div>
+  </div>
+
+  <div class="wrap" style="padding-bottom:120px;">
+    <div class="prov-stats">
+      <div class="prov-stat">
+        <span class="prov-stat-num">{totalFound}</span>
+        <span class="prov-stat-label">Objects encountered</span>
+      </div>
+      <div class="prov-stat">
+        <span class="prov-stat-num">{totalClaimed}</span>
+        <span class="prov-stat-label">Claimed — gone</span>
+      </div>
+      <div class="prov-stat">
+        <span class="prov-stat-num">{totalSourcing}</span>
+        <span class="prov-stat-label">Directions open</span>
+      </div>
+    </div>
+
+    <div class="prov-chapter">
+      <div class="prov-chapter-no">Chapter I<br />The Search</div>
+      <div class="prov-chapter-body">
+        <h2>We go to places where making is ending.</h2>
+        <p>Workshops that have no apprentice. Markets where the seller is also the last maker. Families clearing a house for the last time. These are the places DOKU looks.</p>
+        <p>We do not put in orders. We do not brief craftspeople on what we want. We arrive, we look, and we either find something or we don't. Most trips end without an object. That is the job.</p>
+        <div class="prov-pull">"The object already exists. We are just trying to find it before it disappears."</div>
+        <p>When we find something, we bring it back exactly as it was. No restoration, no alteration, no cleaning that would erase the evidence of its life. The wear is part of the record.</p>
+      </div>
+    </div>
+
+    <div class="prov-chapter">
+      <div class="prov-chapter-no">Chapter II<br />The Standard</div>
+      <div class="prov-chapter-body">
+        <h2>Not everything found is worth keeping.</h2>
+        <p>Most objects we encounter do not make it into the collection. The threshold is not aesthetic — it is structural. An object qualifies when its existence depends on circumstances that cannot be reproduced.</p>
+        <ul class="prov-criteria">
+          <li>The maker no longer produces this. Not by choice — by circumstance: retirement, death, a skill that was never passed on.</li>
+          <li>The material is exhausted, restricted, or so location-specific that sourcing it again would produce a different object entirely.</li>
+          <li>The object was made once — not as a limited run, not as a numbered edition, but as a single unrepeated act.</li>
+          <li>There is no record of its specifications. It cannot be reverse-engineered and reissued.</li>
+        </ul>
+        <div class="prov-pull">"Limited edition is a marketing term. We do not use it. Our objects are not limited — they are singular."</div>
+      </div>
+    </div>
+
+    <div class="prov-chapter">
+      <div class="prov-chapter-no">Chapter III<br />The Claim</div>
+      <div class="prov-chapter-body">
+        <h2>When you claim a DOKU, the listing closes.</h2>
+        <p>Not "sold out." Closed. There is a difference. Sold out implies a restock is possible, a supplier is being called, a second batch is coming. Closed means the page stops existing as a live listing. It moves to the archive, where it becomes record rather than offer.</p>
+        <p>The price you pay is not for the object alone. It is for the certainty that this object — this specific one — will not appear on any other platform, in any other form, at any other time. That certainty has a cost. We have tried to price it honestly.</p>
+        <div class="prov-pull">"In ten years, owning one will mean something it does not yet mean today. That is the only promise we make."</div>
+        <p>We do not offer returns on the basis of changed taste. We do offer them on the basis of misrepresentation — if the object is materially different from how it was described, the claim is void. We have never had to honor this policy.</p>
+      </div>
+    </div>
+
+    <div class="prov-chapter">
+      <div class="prov-chapter-no">Chapter IV<br />The Resemblance</div>
+      <div class="prov-chapter-body">
+        <h2>We have noticed something about who buys from us.</h2>
+        <p>Founders who started something that did not exist before they started it. People in the middle of building a company, a kitchen, a career — from a single decision nobody else signed off on. People who, if you asked how they got here, would have to explain a moment rather than a process.</p>
+        <p>They tend to recognize the objects before they finish reading the description. Not because the object is rare — rarity is just a fact about supply. Because it was made the way they make things: once, without a template, by someone who could not have done it any other way.</p>
+        <div class="prov-pull">"We did not build this for collectors. We built it for people who are, somewhere in their own life, already doing what these objects did — making something that exists exactly once."</div>
+        <p>That is the only customer we are trying to find. If the paragraph above sounds like you, you already understand what we sell.</p>
+      </div>
+    </div>
+
+    <div class="prov-chapter">
+      <div class="prov-chapter-no">Chapter V<br />The Record</div>
+      <div class="prov-chapter-body">
+        <h2>The archive is not a graveyard. It is a ledger.</h2>
+        <p>Every object that passes through DOKU is recorded in the archive after it is claimed. The epitaph is written by us, based on what the new owner tells us — where it went, what it is near, what it replaced. Some owners do not tell us anything. We record that too.</p>
+        <p>The archive exists for one reason: to prove that these objects were real, that they moved, that someone chose them. In a world where most things are photographed and none of them are owned, we think that proof matters.</p>
+        <p>The archive currently holds <strong style="color:var(--ivory); font-weight:400;">{totalClaimed} {totalClaimed === 1 ? 'object' : 'objects'}</strong>. Every one of them is somewhere specific, doing something specific, belonging to someone specific. We know where {claimedWord} ended up.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="prov-closing">
+    <div class="eyebrow">The only rule</div>
+    <p>We will never sell something we do not physically hold. We will never show an image of something we do not own. We will never restock an object that has been claimed. These are not policies. They are the reason DOKU exists.</p>
+  </div>
 </Base>

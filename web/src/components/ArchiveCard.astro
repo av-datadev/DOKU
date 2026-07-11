@@ -1,0 +1,20 @@
+---
+import type { Product } from '../lib/products';
+import Frame from './Frame.astro';
+
+// Claimed-object card, shared by the homepage teaser and the full archive page.
+// Only renders a Frame (desaturated) when a real image exists — no sketch/
+// placeholder for claimed items, matching the old site's archiveCard().
+interface Props {
+  product: Product;
+}
+const { product: p } = Astro.props;
+---
+
+<div class="archive-item" data-search={`${p.title} ${p.origin ?? ''} ${p.epitaph ?? ''}`.toLowerCase()}>
+  {p.image && <Frame product={p} faded />}
+  <h4 class="serif">N° {p.sku} — {p.title}</h4>
+  <div class="origin">{p.origin}</div>
+  <p class="epitaph">"{p.epitaph}"</p>
+  <span class="claimed-mark">Claimed</span>
+</div>

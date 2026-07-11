@@ -1,11 +1,26 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
 ---
+
 <Base title="Privacy — DOKU">
-  <Placeholder
-    eyebrow="Privacy"
-    title="What we collect, and where it goes."
-    note="The privacy page — the single source of truth for data handling — is being ported verbatim from the current site."
-  />
+  <div class="narrow">
+    <div class="page-head">
+      <div class="eyebrow">The short version</div>
+      <h1 class="serif">Privacy</h1>
+      <p>We collect less than most retailers. Here's the whole list, and where each thing goes.</p>
+    </div>
+
+    <div class="specs" style="margin-bottom:40px;">
+      <div class="spec-row"><span>Name &amp; email, if you use Inquire or Notify me</span><span>Sent to Web3Forms, our form-delivery provider. Read once, then it sits in an inbox — not a database we query.</span></div>
+      <div class="spec-row"><span>Pages viewed, items held, forms sent</span><span>Google Analytics — only if you accept the banner. Decline, and none of it leaves your browser.</span></div>
+      <div class="spec-row"><span>Shipping details at checkout</span><span>Sent to our order system only after payment is verified — never to a card processor; DOKU never sees or stores card details.</span></div>
+      <div class="spec-row"><span>What's in your cart</span><span>A signed cookie, readable only by our server — not shared, sold, or used to track you elsewhere. No browser storage, no ad tracking.</span></div>
+      <div class="spec-row"><span>Currency you've selected</span><span>A plain cookie, display-only. The charge itself is always computed server-side in the object's real price.</span></div>
+    </div>
+
+    <div class="story-block">
+      <p>We don't sell data. We don't have enough of it to, and wouldn't if we did — DOKU runs on objects, not on knowing more about you than you told us.</p>
+      <p>If a question isn't answered here, ask it directly — the <a href="/inquire" style="color:var(--gold); text-decoration:none; border-bottom:1px solid var(--gold);">Inquire</a> page reaches a person, not a form processor.</p>
+    </div>
+  </div>
 </Base>

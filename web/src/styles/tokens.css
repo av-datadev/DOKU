@@ -31,3 +31,5 @@ h1, h2, h3, .display, blockquote {
 }
 
 a { color: inherit; }
+
+.serif { font-family: 'Fraunces', serif; }

@@ -1,11 +1,66 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
+import ArchiveCard from '../components/ArchiveCard.astro';
+import { fetchProducts } from '../lib/products';
+
+const products = await fetchProducts();
+const claimed = products.filter((p) => p.status === 'claimed');
 ---
+
 <Base title="The Archive — DOKU">
-  <Placeholder
-    eyebrow="The Archive"
-    title="What has already been claimed."
-    note="The archive of one-of-one objects that have found their owner is being ported. Each keeps only its epitaph — never a second chance to buy it."
-  />
+  <section class="section-head">
+    <div class="eyebrow">No longer available</div>
+    <h2 class="serif">The archive</h2>
+    <p>Proof of what existed, and that it is gone. Nothing here returns.</p>
+  </section>
+
+  {claimed.length > 0 && (
+    <div class="wrap archive-search-wrap" style="padding-top:0;">
+      <div class="archive-search-field">
+        <input type="search" id="archive-search" placeholder="Search the archive" autocomplete="off" spellcheck="false" />
+        <button class="archive-search-clear" id="archive-search-clear" aria-label="Clear search">×</button>
+      </div>
+      <span class="archive-search-count" id="archive-count">{claimed.length} {claimed.length === 1 ? 'object' : 'objects'}</span>
+    </div>
+  )}
+
+  <div class="archive-grid wrap" id="archive-grid" style="padding:0; margin-bottom:100px;">
+    {claimed.length
+      ? claimed.map((p) => <ArchiveCard product={p} />)
+      : <div class="empty-state">The archive is still empty. Everything we've found is still findable.</div>}
+  </div>
+  <div id="archive-no-results" style="display:none; text-align:center; padding:80px 48px; color:var(--claimed); font-family:'Archivo',sans-serif; font-size:13px; letter-spacing:0.08em;">
+    Nothing found. <button type="button" id="archive-clear-inline">Clear.</button>
+  </div>
 </Base>
+
+<script>
+  const input = document.getElementById('archive-search') as HTMLInputElement | null;
+  const clearBtn = document.getElementById('archive-search-clear');
+  const countEl = document.getElementById('archive-count');
+  const noResults = document.getElementById('archive-no-results');
+  const grid = document.getElementById('archive-grid');
+  if (input && grid) {
+    const items = Array.from(grid.querySelectorAll<HTMLElement>('.archive-item'));
+    const total = items.length;
+
+    const apply = () => {
+      const q = input.value.trim().toLowerCase();
+      if (clearBtn) (clearBtn as HTMLElement).style.display = q ? 'block' : 'none';
+
+      let visible = 0;
+      for (const el of items) {
+        const match = !q || (el.dataset.search ?? '').includes(q);
+        el.classList.toggle('hidden', !match);
+        if (match) visible++;
+      }
+
+      if (countEl) countEl.textContent = q ? `${visible} of ${total}${total === 1 ? ' object' : ' objects'}` : `${total}${total === 1 ? ' object' : ' objects'}`;
+      if (noResults) noResults.style.display = visible === 0 && q ? 'block' : 'none';
+    };
+
+    input.addEventListener('input', apply);
+    clearBtn?.addEventListener('click', () => { input.value = ''; input.focus(); apply(); });
+    document.getElementById('archive-clear-inline')?.addEventListener('click', () => { input.value = ''; apply(); });
+  }
+</script>
