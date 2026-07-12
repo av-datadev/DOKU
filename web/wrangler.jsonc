@@ -10,5 +10,14 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS"
-  }
+  },
+  // CUTOVER: custom_domain:true makes `wrangler deploy` claim discoverdoku.com
+  // for this Worker directly — Cloudflare only allows one Worker per custom
+  // domain, so this single deploy is also the moment traffic switches away
+  // from the old "doku" Worker. Do not deploy this until ready to go live —
+  // see project memory for the required order of operations (this must
+  // happen BEFORE revoking anon's place_order() grant, not after).
+  "routes": [
+    { "pattern": "discoverdoku.com", "custom_domain": true }
+  ]
 }
