@@ -1,8 +1,9 @@
 ---
-// Region → currency picker, shown on every visit — deliberately not persisted
-// (Hard rule 3: no localStorage; and per the source's own comment, the bar is
-// meant to reappear each session, distinct from the currency cookie itself,
-// which persists so a chosen currency survives navigation).
+// Region → currency picker. Once the visitor answers (Continue or dismiss) we set
+// a `doku_region` cookie so the bar doesn't re-ask on every page load — a plain
+// cookie, not localStorage, so Hard rule 3 still holds. This is separate from the
+// `doku_currency` cookie (which carries the chosen currency across navigation);
+// this one just records that the picker was already dealt with.
 const REGIONS = [
   { code: 'IN', name: 'India', cur: 'INR' },
   { code: 'US', name: 'United States', cur: 'USD' },
@@ -30,11 +31,17 @@ const REGIONS = [
 <script>
   import { applyCurrency } from '../lib/currency-client';
 
+  const REGION_COOKIE = 'doku_region';
+  const answered = document.cookie.split('; ').some((c) => c.startsWith(REGION_COOKIE + '='));
+  function remember(code: string) {
+    document.cookie = `${REGION_COOKIE}=${code}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  }
+
   const bar = document.getElementById('region-bar');
   const sel = document.getElementById('region-select') as HTMLSelectElement | null;
   const cont = document.getElementById('region-continue');
   const close = document.getElementById('region-close');
-  if (bar && sel) {
+  if (bar && sel && !answered) {
     const regions: { code: string; name: string; cur: string }[] = JSON.parse(bar.dataset.regions || '[]');
     regions.forEach((r) => {
       const o = document.createElement('option');
@@ -68,8 +75,8 @@ const REGIONS = [
     }
 
     sel.addEventListener('change', () => applyCurrency(curFor(sel.value)));
-    cont?.addEventListener('click', () => { applyCurrency(curFor(sel.value)); bar.classList.remove('show'); });
-    close?.addEventListener('click', () => bar.classList.remove('show'));
+    cont?.addEventListener('click', () => { applyCurrency(curFor(sel.value)); remember(sel.value); bar.classList.remove('show'); });
+    close?.addEventListener('click', () => { remember(sel.value); bar.classList.remove('show'); });
 
     setTimeout(() => bar.classList.add('show'), 700);
   }

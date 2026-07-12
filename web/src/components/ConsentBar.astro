@@ -1,7 +1,10 @@
 ---
 // GA4 consent bar. Analytics only loads if the visitor clicks Accept — see the
 // gtag stub in Base.astro's <head>. Decline (or ignoring the bar) means no GA
-// request ever fires. No storage (Hard rule 3): reappears each session.
+// request ever fires. The choice is remembered in a `doku_consent` cookie so the
+// bar doesn't re-ask on every page load — a plain cookie, not localStorage, so
+// Hard rule 3 still holds (and remembering a consent answer is legally required).
+// If accepted on a prior page, analytics re-arms silently on each subsequent load.
 ---
 
 <div id="consent-bar" class="consent-bar">
@@ -16,16 +19,32 @@
 </div>
 
 <script>
+  const CONSENT_COOKIE = 'doku_consent';
+  const prior = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(CONSENT_COOKIE + '='))
+    ?.split('=')[1];
+
+  function remember(value: string) {
+    document.cookie = `${CONSENT_COOKIE}=${value}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+  }
+
+  // Already answered on a previous page — honour it silently: re-arm analytics
+  // if they accepted, and never re-show the bar.
+  if (prior === 'accept') (window as any).loadAnalytics?.();
+
   const bar = document.getElementById('consent-bar');
   const accept = document.getElementById('consent-accept');
   const decline = document.getElementById('consent-decline');
-  if (bar) {
+  if (bar && !prior) {
     setTimeout(() => bar.classList.add('show'), 900);
     accept?.addEventListener('click', () => {
+      remember('accept');
       (window as any).loadAnalytics?.();
       bar.classList.remove('show');
     });
     decline?.addEventListener('click', () => {
+      remember('decline');
       bar.classList.remove('show');
     });
   }
