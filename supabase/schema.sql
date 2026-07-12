@@ -1,6 +1,7 @@
--- DOKU — schema of record. Applied via two migrations (initial products
--- table, then orders_and_reserve_flow) — this file is the current-state
--- reference, not a replay log. Re-running it is safe (idempotent).
+-- DOKU — schema of record. Applied via successive migrations (initial products
+-- table, orders_and_reserve_flow, admin auth, razorpay_payments, then
+-- customer_accounts) — this file is the current-state reference, not a replay
+-- log. Re-running it is safe (idempotent).
 
 create table if not exists products (
   sku text primary key,
@@ -144,3 +145,44 @@ create policy "Admins delete products" on products
 -- Orders hold buyer PII: admins can read, anon never can (no anon policy).
 create policy "Admins read orders" on orders
   for select to authenticated using (is_admin());
+
+-- ── CUSTOMER ACCOUNTS (public site) ─────────────────────────────────
+-- Shoppers can optionally sign in with a magic link (passwordless — Supabase
+-- Auth, carried in httpOnly cookies on the SSR site, NOT the localStorage
+-- session admin.html uses; see CLAUDE.md Hard rule 3). Accounts are purely a
+-- convenience: guest checkout still works unchanged. Two capabilities only —
+-- see your own past orders, and save a shipping address that prefills checkout.
+--
+-- Order history needs NO change to the checkout / Razorpay / place_order_paid
+-- path: orders already store the buyer's email, and a magic link proves the
+-- signed-in user owns that email, so a shopper simply reads back the orders
+-- whose email matches their verified JWT. This also means a guest who later
+-- signs in with the same email retroactively sees the orders they placed as a
+-- guest. Matching is case-insensitive (emails are compared lower-cased).
+create policy "Buyers read own orders by email" on orders
+  for select to authenticated
+  using (lower(email) = lower(auth.jwt() ->> 'email'));
+
+-- One saved shipping address per account (keyed by the auth user id). Holds
+-- PII (name + address), so it is the account owner's alone: RLS restricts every
+-- operation to auth.uid() = id. Admins do NOT get a blanket read here — this is
+-- the shopper's own record, distinct from the orders they actually placed.
+create table if not exists customer_addresses (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null,
+  address text not null,
+  city text not null,
+  postcode text not null,
+  country text not null,
+  updated_at timestamptz not null default now()
+);
+alter table customer_addresses enable row level security;
+
+-- Owner-only access. auth.uid() = id on every verb, so no account can ever
+-- read or write another account's saved address. anon has no policy → denied.
+create policy "Owner reads own address" on customer_addresses
+  for select to authenticated using (auth.uid() = id);
+create policy "Owner inserts own address" on customer_addresses
+  for insert to authenticated with check (auth.uid() = id);
+create policy "Owner updates own address" on customer_addresses
+  for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);

@@ -18,6 +18,28 @@ const skuList = items.map((p) => p.sku);
 // USD prices by razorpay-create-order, never from what's shown here.
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
 const rates = await fetchRates();
+
+// If the shopper is signed in, prefill the form from their saved address + email
+// so checkout is one confirmation, not a re-typing. Guests see an empty form and
+// a gentle nudge that signing in would fill it — never a wall; accounts stay
+// optional (Hard rule: never imply a barrier that isn't there).
+const { user, supabase } = Astro.locals;
+let saved: { full_name: string; address: string; city: string; postcode: string; country: string } | null = null;
+if (user) {
+  const { data } = await supabase
+    .from('customer_addresses')
+    .select('full_name, address, city, postcode, country')
+    .maybeSingle();
+  saved = data;
+}
+const pf = {
+  fullName: saved?.full_name ?? '',
+  email: user?.email ?? '',
+  address: saved?.address ?? '',
+  city: saved?.city ?? '',
+  postcode: saved?.postcode ?? '',
+  country: saved?.country ?? '',
+};
 ---
 
 <Base title="Claim these objects — DOKU">
@@ -44,17 +66,29 @@ const rates = await fetchRates();
           <span>Total</span><span class="serif" data-usd={total}>{formatMoney(total, currency, rates)}</span>
         </div>
 
-        <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)}>
+        {!user && (
+          <p class="fine-print" style="margin-bottom:18px;">
+            Have an account? <a href="/login">Sign in</a> to fill this from a saved address. Not required — carry on as a guest.
+          </p>
+        )}
+
+        <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)} data-signed-in={user ? '1' : '0'}>
           <fieldset>
             <legend>Shipping to</legend>
-            <div class="form-group"><label for="full-name">Full name</label><input id="full-name" name="fullName" required autocomplete="name" /></div>
-            <div class="form-group"><label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" /></div>
-            <div class="form-group"><label for="address">Address</label><input id="address" name="address" required autocomplete="street-address" /></div>
+            <div class="form-group"><label for="full-name">Full name</label><input id="full-name" name="fullName" required autocomplete="name" value={pf.fullName} /></div>
+            <div class="form-group"><label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" value={pf.email} /></div>
+            <div class="form-group"><label for="address">Address</label><input id="address" name="address" required autocomplete="street-address" value={pf.address} /></div>
             <div class="form-row">
-              <div class="form-group"><label for="city">City</label><input id="city" name="city" required autocomplete="address-level2" /></div>
-              <div class="form-group"><label for="postcode">Postcode</label><input id="postcode" name="postcode" required autocomplete="postal-code" /></div>
+              <div class="form-group"><label for="city">City</label><input id="city" name="city" required autocomplete="address-level2" value={pf.city} /></div>
+              <div class="form-group"><label for="postcode">Postcode</label><input id="postcode" name="postcode" required autocomplete="postal-code" value={pf.postcode} /></div>
             </div>
-            <div class="form-group"><label for="country">Country</label><input id="country" name="country" required autocomplete="country-name" /></div>
+            <div class="form-group"><label for="country">Country</label><input id="country" name="country" required autocomplete="country-name" value={pf.country} /></div>
+            {user && (
+              <label class="remember-check">
+                <input type="checkbox" name="remember" value="1" checked={!saved} />
+                <span>Save this address to my account</span>
+              </label>
+            )}
           </fieldset>
           <fieldset>
             <legend>Payment</legend>
@@ -162,9 +196,23 @@ const rates = await fetchRates();
             }
             // Reserved server-side. Hand the confirmation page a signed cookie
             // and empty the cart, then go.
+            // Hand the confirmation page the order code + first name; and, if a
+            // signed-in shopper ticked "save this address", the shipping fields
+            // so the server (which holds the session cookie) can upsert it. The
+            // browser can't write the address directly — the auth session is
+            // httpOnly — so this server round-trip is the save path.
+            const remember = (form.querySelector('input[name="remember"]') as HTMLInputElement | null)?.checked;
             await fetch('/api/checkout-complete', {
               method: 'POST',
-              body: new URLSearchParams({ order_code: result.order_code, full_name: String(buyer.full_name ?? '') }),
+              body: new URLSearchParams({
+                order_code: result.order_code,
+                full_name: String(buyer.full_name ?? ''),
+                remember: remember ? '1' : '0',
+                address: String(buyer.address ?? ''),
+                city: String(buyer.city ?? ''),
+                postcode: String(buyer.postcode ?? ''),
+                country: String(buyer.country ?? ''),
+              }),
             });
             const gtag = (window as any).gtag;
             if (typeof gtag === 'function') {

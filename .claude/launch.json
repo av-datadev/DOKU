@@ -2,10 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "doku",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "7432", "--directory", "/Applications/Repos/Repo/DOKU"],
-      "port": 7432
+      "name": "doku-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Applications/Repos/Repo/DOKU/web",
+      "port": 4321
     }
   ]
 }

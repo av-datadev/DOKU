@@ -23,6 +23,26 @@ export const POST: APIRoute = async ({ request, cookies, locals, url }) => {
 
   const skus = await decodeCart(cookies.get(CART_COOKIE)?.value, secret);
 
+  // If a signed-in shopper asked to remember this address, save it now — the
+  // browser couldn't (the auth session is httpOnly), but this server route holds
+  // the session via locals.supabase, and RLS pins the write to their own row.
+  // Best-effort: a failed save must never block the confirmation.
+  if (form.get('remember') === '1' && locals.user) {
+    const addr = {
+      id: locals.user.id,
+      full_name: String(form.get('full_name') ?? '').trim(),
+      address: String(form.get('address') ?? '').trim(),
+      city: String(form.get('city') ?? '').trim(),
+      postcode: String(form.get('postcode') ?? '').trim(),
+      country: String(form.get('country') ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    };
+    if (addr.full_name && addr.address && addr.city && addr.postcode && addr.country) {
+      const { error } = await locals.supabase.from('customer_addresses').upsert(addr, { onConflict: 'id' });
+      if (error) console.error('checkout save address:', error.message);
+    }
+  }
+
   cookies.set(LAST_ORDER_COOKIE, await encodeOrder({ code, name, skus }, secret), {
     path: '/',
     httpOnly: true,

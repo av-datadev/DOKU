@@ -347,6 +347,72 @@ Razorpay is live in **test mode only** — KYC/PAN isn't done, so no live keys e
 
 ---
 
+## Session 14 — 2026-07-12 — Customer accounts (passwordless) + migration cleanup
+
+**Customer accounts, built.** Shoppers can now **optionally** sign in with a
+**magic link** (Supabase Auth, passwordless) to (a) see their own past orders
+and (b) save one shipping address that prefills checkout. **Guest checkout is
+unchanged and remains the default** — nothing about buying requires an account.
+
+### Design decisions that kept it low-risk
+- **Session in httpOnly cookies, not localStorage** (`@supabase/ssr`,
+  `web/src/lib/auth.ts` → `supabaseServer()`). Unlike `admin.html`'s default
+  localStorage session (fine there — separate non-public page), the public-site
+  session is server-set/server-verified and unreadable by page JS. This is the
+  only session storage Hard rule 3 permits on the public site — same reasoning
+  as the cart cookie.
+- **Order history matches on email — zero changes to checkout / Razorpay /
+  `place_order_paid`.** Orders already store the buyer email; a magic link proves
+  the user owns that email, so `/account` reads back orders whose email matches
+  their verified JWT (new RLS policy "Buyers read own orders by email",
+  case-insensitive). A guest who later signs in with the same email
+  retroactively sees those orders. The account page shows the **real
+  `amount_inr` charged** (paise → ₹), never the per-row USD `price` that
+  `place_order_paid` mislabels `'INR'`.
+- **Saved address:** new `customer_addresses` table, one row per account keyed by
+  `auth.users.id`, RLS owner-only on every verb. Written server-side (the browser
+  can't touch the httpOnly session) from `/account` or a "save this address"
+  checkbox at checkout.
+
+### What was added
+- **DB** (`supabase/migrations/20260712_customer_accounts.sql`, mirrored into
+  `schema.sql`): `customer_addresses` + owner-only RLS; the orders own-email read
+  policy. Purely additive — no existing table/grant altered. **Not yet applied to
+  the live Supabase** (additive but touches an RLS policy on the orders PII
+  table — left for a deliberate apply).
+- **Auth flow:** `/login` (no-JS form) → `POST /api/auth/magic-link`
+  (`signInWithOtp`) → emailed link → `GET /auth/callback` (`exchangeCodeForSession`,
+  PKCE) → `/account`. `POST /api/auth/signout` clears it. Middleware resolves the
+  user once per request into `locals.user` (anon visitors pay no round-trip).
+- **`/account`** (protected; guests redirect to `/login`): order history, saved-
+  address form, sign out. **Checkout** prefills from the saved address/email when
+  signed in and offers to remember a new one. **Header** shows Account / Sign in.
+- **Docs:** `/privacy` gained rows for account email + saved address; `CLAUDE.md`
+  gained a "Customer accounts" section.
+
+### Gated on ops (same posture as Razorpay live keys)
+Magic-link **delivery** needs (1) `https://discoverdoku.com/auth/callback`
+(+ `http://localhost:4321/auth/callback` for dev) added to Supabase → Auth →
+URL Configuration → Redirect URLs, and (2) **custom SMTP** — Supabase's built-in
+auth email is rate-limited/test-grade and DOKU has no domain email yet. The code
+is complete; links won't reliably arrive until both are done.
+
+### Verified
+`/login` renders on-brand, `/account` bounces guests to sign-in, `astro build`
+clean, no console errors. The magic-link email round-trip itself can only be
+tested once SMTP + redirect URLs are configured.
+
+### Migration cleanup (the debt Session 13 left open)
+Deleted the dead pre-migration artifacts from the repo:
+`doku-site_8.html`, `doku-site_9.html`, root `index.html`, root `admin.html`,
+root `wrangler.jsonc`, and `.assetsignore`. Nothing live references them
+(only docs, now updated). The live admin page remains `web/public/admin.html`.
+**Still outstanding, Cloudflare-side:** the old root `doku` Worker is still
+deployed (serving nothing) — delete from the dashboard when convenient
+(outward-facing, left for a human).
+
+---
+
 ## Current State
 
 **`discoverdoku.com` is live on Astro (`doku-web` Cloudflare Worker), as of Session 13 (2026-07-12).** The single-file HTML SPA is retired from production.
@@ -356,15 +422,17 @@ Razorpay is live in **test mode only** — KYC/PAN isn't done, so no live keys e
 | `web/` | **Live** | Astro 5 SSR app — this is what `discoverdoku.com` actually serves |
 | `web/src/pages/*.astro` | Live | Real routes: `/`, `/collection`, `/item/[sku]`, `/cart`, `/checkout`, `/confirmation`, `/archive`, `/provenance`, `/inquire`, `/privacy` |
 | `web/public/admin.html` | **Live** | Authenticated admin page — catalog + orders management. Served as a static asset by `doku-web`, not part of Astro's routing |
+| `web/src/lib/auth.ts`, `web/src/pages/{login,account}.astro`, `.../api/auth/*`, `.../auth/callback.ts`, `.../api/account/address.ts` | **Live (Session 14)** | Passwordless customer accounts — magic-link sign-in (httpOnly cookie session), order history, saved address |
 | `web/wrangler.jsonc` | Live config | `account_id` pinned (domain lives under a different Cloudflare account than the operator's default), `routes: custom_domain:true` for `discoverdoku.com` |
 | `web/public/.assetsignore` | Live | Excludes `_worker.js` (server code) from being served as a public static file |
 | `CART_SECRET` | Live Cloudflare secret | Set via `wrangler secret put`, not baked into the build |
-| `doku-site_9.html`, `index.html` (repo root), `wrangler.jsonc` (repo root), `admin.html` (repo root) | **Dead / legacy** | Pre-migration SPA and its deploy artifacts. Still in the repo (nothing deleted), but no longer what's served — cleanup debt, not a live path. Do not edit expecting production impact |
+| `supabase/migrations/20260712_customer_accounts.sql` | New (not yet applied live) | `customer_addresses` + owner-only RLS, and the orders own-email read policy. Additive; apply deliberately (touches an RLS policy on the orders PII table) |
+| ~~`doku-site_8/9.html`, root `index.html`/`admin.html`/`wrangler.jsonc`, `.assetsignore`~~ | **Deleted (Session 14)** | Pre-migration SPA + its deploy artifacts, removed once the Astro site proved stable. Old root `doku` Cloudflare Worker (serves nothing) still deployed — delete from the dashboard when convenient |
 | `supabase/schema.sql` | Updated | `products`, `orders`, `place_order()` (anon grant **revoked** post-cutover), `place_order_paid()` (server-only, the live reserve path), `admins`, `is_admin()`, admin policies |
 | `supabase/functions/razorpay-create-order/`, `razorpay-verify-payment/` | Live, CORS locked | Both locked to `https://discoverdoku.com` (was `*` pre-cutover) |
 | `supabase/seed.sql` | Existing | One-time catalog migration (already applied) |
 | `images/` | Existing | Reference photos for SKUs 017 and 018 (also in Supabase) |
-| `.claude/launch.json` | Has two configs | `doku-site` (old static site, port 7432) and `doku-astro` (the live app, port 7433 — use this one) |
+| `.claude/launch.json` | Updated (Session 14) | Single `doku-web` config — `npm run dev` in `web/`, port 4321. The old root-static-site config was removed with the dead files |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
 
@@ -391,7 +459,9 @@ Razorpay is live in **test mode only** — KYC/PAN isn't done, so no live keys e
 - [x] **Product catalog database** — Live in Supabase as of Session 7.
 - [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
 - [~] **Real payment processor** — **Razorpay (domestic INR) live on `discoverdoku.com`** (Session 13 cutover): two Edge Functions + `place_order_paid()`, CORS locked, old free `place_order` revoked from `anon`. Only remaining: PAN/KYC completion, then swap `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to live values — real customer cards fail until then.
-- [x] **Astro migration + cutover** — `discoverdoku.com` moved from the single-file HTML SPA to Astro 5 SSR on Cloudflare Workers (Session 13, 2026-07-12). See Session 13 above for the full sequence. Legacy files (`doku-site_9.html`, root `index.html`/`wrangler.jsonc`/`admin.html`) are dead but not yet deleted — worth a cleanup pass once the new site has proven stable.
+- [x] **Astro migration + cutover** — `discoverdoku.com` moved from the single-file HTML SPA to Astro 5 SSR on Cloudflare Workers (Session 13, 2026-07-12). See Session 13 above for the full sequence.
+- [x] **Migration cleanup** — dead pre-migration files deleted from the repo (Session 14). Remaining: delete the old root `doku` Cloudflare Worker from the dashboard (outward-facing, left for a human).
+- [~] **Customer accounts** — passwordless magic-link sign-in, order history, saved address, built Session 14 (guest checkout unchanged). Code complete; **gated on ops** for link delivery: add the `/auth/callback` redirect URLs (prod + localhost) in Supabase and configure custom SMTP. DB migration `20260712_customer_accounts.sql` not yet applied live. Not built: wishlist/holds, order-status beyond "reserved", self-service account deletion.
 - [x] **Region → currency bar** — live on `discoverdoku.com` (Session 12): region select on entry → currency, USD fallback, no storage.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.

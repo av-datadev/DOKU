@@ -19,6 +19,10 @@ const cartCount = (await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_SEC
 // it here means the very first paint is already in the visitor's currency.
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
 
+// Signed-in shoppers get an Account link; everyone else, a quiet way in. Resolved
+// once per request in middleware (locals.user) — no extra work here.
+const signedIn = !!Astro.locals.user;
+
 const NAV = [
   { href: '/collection', label: 'The Collection' },
   { href: '/archive', label: 'The Archive' },
@@ -65,6 +69,9 @@ const NAV = [
       <a href="/cart" class:list={['cart-link', { active: isActive('/cart') }]}>
         Cart <span class="cart-count" id="cart-count-desktop" hidden={cartCount === 0}>{cartCount}</span>
       </a>
+      <a href={signedIn ? '/account' : '/login'} class:list={[{ active: isActive('/account') || isActive('/login') }]}>
+        {signedIn ? 'Account' : 'Sign in'}
+      </a>
     </nav>
 
     <button class="menu-btn" id="menu-btn" aria-label="Open menu"><span></span><span></span><span></span></button>
@@ -76,6 +83,7 @@ const NAV = [
   <button class="close-btn" id="menu-close">Close</button>
   {NAV.map((n) => <a href={n.href}>{n.label}</a>)}
   <a href="/cart">Cart {cartCount > 0 ? `(${cartCount})` : ''}</a>
+  <a href={signedIn ? '/account' : '/login'}>{signedIn ? 'Account' : 'Sign in'}</a>
 </div>
 
 <script>

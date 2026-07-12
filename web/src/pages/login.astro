@@ -1,0 +1,51 @@
+---
+import Base from '../layouts/Base.astro';
+
+// Passwordless sign-in. The form posts (no JS required) to /api/auth/magic-link,
+// which emails a one-time link; clicking it lands on /auth/callback and the
+// session is set. Already-signed-in visitors have no reason to be here.
+if (Astro.locals.user) return Astro.redirect('/account');
+
+// ?sent=1 → we just emailed a link. ?error=… → something went wrong. The email
+// is echoed back purely to reassure ("we sent it there"), never trusted.
+const sent = Astro.url.searchParams.get('sent') === '1';
+const sentTo = Astro.url.searchParams.get('to') ?? '';
+const error = Astro.url.searchParams.get('error');
+---
+
+<Base title="Sign in — DOKU">
+  <div class="narrow">
+    <div class="page-head">
+      <div class="eyebrow">Your account</div>
+      <h1 class="serif">Sign in</h1>
+      <p>No passwords. We send a link; it signs you in. Optional — you never need an account to buy.</p>
+    </div>
+
+    {sent ? (
+      <div class="story-block">
+        <p>Check your inbox{sentTo ? <> at <strong>{sentTo}</strong></> : null}. The link signs you in — it works once, and only on this device.</p>
+        <p class="fine-print">Didn't arrive? <a href="/login">Send another</a>. Give it a minute; check spam.</p>
+      </div>
+    ) : (
+      <form method="POST" action="/api/auth/magic-link" novalidate>
+        {error && (
+          <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
+            That didn't work. Try requesting a fresh link.
+          </div>
+        )}
+        <fieldset>
+          <legend>Email</legend>
+          <div class="form-group">
+            <label for="email">Where should the link go?</label>
+            <input id="email" type="email" name="email" required autocomplete="email" inputmode="email" />
+          </div>
+          <p class="fine-print">
+            We store only your email and — if you save one — a shipping address.
+            Nothing else. See <a href="/privacy">Privacy</a>.
+          </p>
+        </fieldset>
+        <button class="btn-gold" type="submit" style="margin-top:28px;"><span>Send the link</span></button>
+      </form>
+    )}
+  </div>
+</Base>
