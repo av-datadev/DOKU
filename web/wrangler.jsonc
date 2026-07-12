@@ -4,6 +4,11 @@
   // serves the current static single-file site). The two deploys stay separate
   // until the cutover. `nodejs_compat` is needed by @supabase/supabase-js.
   "name": "doku-web",
+  // Domain + the existing "doku" Worker live under Pushpak1999gupta's
+  // Cloudflare account, not the account this deploy is authenticated as by
+  // default — pinned explicitly so `wrangler deploy` can't land in the wrong
+  // account when the token has access to more than one.
+  "account_id": "3e2f9dda8bd9688cf486b1cd9e5821e0",
   "compatibility_date": "2026-07-07",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./dist/_worker.js/index.js",
