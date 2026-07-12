@@ -22,7 +22,12 @@
   // from the old "doku" Worker. Do not deploy this until ready to go live —
   // see project memory for the required order of operations (this must
   // happen BEFORE revoking anon's place_order() grant, not after).
+  // www is a second custom_domain so visitors typing (or linking) the www host
+  // don't hit an NXDOMAIN — it had no DNS record at all. custom_domain makes
+  // Cloudflare provision the www hostname + DNS for this same Worker, so www
+  // serves the site directly (apex stays canonical; no redirect layer here).
   "routes": [
-    { "pattern": "discoverdoku.com", "custom_domain": true }
+    { "pattern": "discoverdoku.com", "custom_domain": true },
+    { "pattern": "www.discoverdoku.com", "custom_domain": true }
   ]
 }
