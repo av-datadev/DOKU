@@ -8,26 +8,32 @@ preference below: **never let the site imply DOKU has an object it doesn't
 actually have.** See "Hard rules."
 
 ## What it is
-A client-side SPA (a single self-contained HTML page) with hash-based routing
-(`#/`, `#/collection`, `#/item/:sku`, `#/cart`, `#/checkout`, `#/confirmation`,
-`#/archive`, `#/provenance`, `#/inquire`, `#/privacy`). No build step, no
-framework. **Live at https://discoverdoku.com**, served from Cloudflare
-Workers (static assets, `wrangler.jsonc`), auto-deployed from `main`. Cart and
-currency selection live in plain JS variables (in-memory only) — that's
-intentional, not a missing feature, see Hard rules. The catalog and orders
-live in Supabase (see "Data model"), with a separate authenticated admin page
-(`admin.html`, see "Admin") for managing them — that's the real backend the
-site has. NOTE: the in-memory / no-storage rule (Hard rule 3) applies to the
-public SPA only, NOT to `admin.html`, which is a distinct authenticated page
-and deliberately uses Supabase's default localStorage session — see Admin.
+The public site is an **Astro 5 SSR app on Cloudflare Workers**, living in
+`web/` (`web/src/pages/` — real routes, no hash router: `/`, `/collection`,
+`/item/:sku`, `/cart`, `/checkout`, `/confirmation`, `/archive`,
+`/provenance`, `/inquire`, `/privacy`). **Live at https://discoverdoku.com**,
+served by the `doku-web` Cloudflare Worker (Custom Domain, see
+`web/wrangler.jsonc`) — cut over from the old single-file site on 2026-07-12.
+Every page is server-rendered per request: Astro fetches the live product
+catalog from Supabase before HTML reaches the browser, so `/item/:sku` pages
+are real, indexable URLs — the actual SEO win over the old `#/item/:sku`
+hash routing.
 
-**File layout — important.** The public site is authored in `doku-site_9.html`
-(the active source); `index.html` at the repo root is its deploy copy. They
-**currently diverge by exactly the payment code**: `index.html` (live) runs
-the reserve-only checkout, while `doku-site_9.html` additionally has the
-Razorpay payment flow staged in **test mode** (see "Payments"). Mirror any
-*non-payment* change into both files; the two reconcile at the payment
-go-live cutover.
+Cart state is a **signed httpOnly cookie** (HMAC-SHA256, `web/src/lib/cart.ts`),
+verified server-side on every request — not in-memory JS, since real page
+reloads don't preserve that the way the old never-reloading SPA did. Currency
+choice is a separate plain (unsigned, display-only) cookie. Neither is
+`localStorage`/`sessionStorage` — see Hard rule 3. The catalog and orders live
+in Supabase (see "Data model"), with a separate authenticated admin page
+(`web/public/admin.html`, see "Admin") for managing them.
+
+**Legacy, no longer live:** `doku-site_9.html`, `index.html` (repo root), the
+root `doku` Cloudflare Worker, and the repo-root copy of `admin.html` are the
+pre-migration single-file SPA and its deploy artifacts. They still exist in
+the repo (nothing was deleted) but `discoverdoku.com` no longer points to any
+of them — do not edit them expecting changes to reach production. The live
+admin page is `web/public/admin.html`; the root copy is dead weight pending
+cleanup.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -61,16 +67,22 @@ DOKU" for exactly this reason).
 2. Unsourced items use `status:'coming-soon'` and get an original hand-drawn
    gold-line SVG sketch (`SKETCHES` object, keyed by sku) instead of a photo,
    unless a properly-licensed, disclosed reference photo has been approved.
-3. No `localStorage`/`sessionStorage`. Cart and currency are in-memory JS
-   state by design — this only works because the whole site is one
-   never-reloading page. If this ever becomes a real multi-page site, that
-   needs a backend session, not browser storage.
-4. Checkout on the **live** site is a reserve-only simulation — no real charge
-   happens. A Razorpay (domestic INR) integration is built but runs in **test
-   mode only** and is staged in `doku-site_9.html`, not deployed (see
-   "Payments"). Never let copy or behavior on the live site imply a real charge
-   happened. This rule gets rewritten — with the owner's explicit sign-off —
-   only at the payment go-live cutover.
+3. No `localStorage`/`sessionStorage`, ever. On the live Astro site, cart
+   state is a **signed httpOnly cookie** — server-verified, unreadable and
+   unwritable by page JS — and currency choice is a plain display-only
+   cookie. This is the "real backend session" this rule always said a
+   multi-page site would eventually need, now that `discoverdoku.com` is one.
+   The rule was never anti-cookie — it's anti client-readable persistent
+   storage that could fingerprint a visitor or quietly accumulate PII.
+4. Checkout on the **live** site now runs a real Razorpay flow (create-order
+   → Checkout modal → signature-verified reserve via `place_order_paid()`) —
+   but Razorpay is still in **test mode only** (KYC/PAN not complete, no live
+   keys exist). The owner explicitly confirmed going live knowing this on
+   2026-07-12 — real customer cards will fail until live keys are swapped in
+   (see "Payments"). The old free/no-payment `place_order()` path has been
+   revoked from `anon`; Razorpay is now the *only* reserve path, not a staged
+   alternative. Never let copy imply Razorpay is processing live payments
+   until `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are actually live values.
 
 ## Data model
 Catalog data lives in a Supabase Postgres table, `public.products`
@@ -80,34 +92,41 @@ Catalog data lives in a Supabase Postgres table, `public.products`
 `origin`, `year`, `teaser`, `epitaph`, `image`, `reference_image` (bool),
 `sort_order`.
 
-**Checkout reserves, it does not claim.** Submitting the checkout form calls
-the Postgres RPC `place_order(p_skus, p_full_name, p_email, p_address,
-p_city, p_postcode, p_country, p_currency)` — a `SECURITY DEFINER` function
+**Checkout reserves, it does not claim.** Submitting the checkout form runs
+the Razorpay flow (create-order → Checkout modal → verify), which on a
+verified payment calls the Postgres RPC `place_order_paid(p_skus,
+p_full_name, p_email, p_address, p_city, p_postcode, p_country,
+p_razorpay_order_id, p_razorpay_payment_id, p_amount_inr)` — a `SECURITY
+DEFINER`, **server-only** function (called from the `razorpay-verify-payment`
+Edge Function with the service-role key, never directly from the browser)
 that, in one transaction: locks every item in the cart, verifies each is
-still `'available'` (all-or-nothing — if any item was taken first, nothing
-changes and the client shows an error), flips them to `'reserved'`, and
-writes one row per item into `public.orders` under a shared `order_code`.
-`'reserved'` means "someone completed the front-end simulation" — it is
-**not** a verified sale (see Hard rule 4). Promote a reserved item to
-`'claimed'` (and write a real epitaph) from the Supabase dashboard yourself
-once you've actually confirmed/received payment out-of-band.
+still `'available'`, flips them to `'reserved'`, and writes one row per item
+into `public.orders` under a shared `order_code`. `'reserved'` means "a
+verified Razorpay payment came in" — it is **not yet** a fulfilled sale (see
+Hard rule 4). Promote a reserved item to `'claimed'` (and write a real
+epitaph) from `web/public/admin.html` once you've fulfilled it.
+
+The older `place_order()` RPC (the pre-Razorpay free/no-payment reserve path)
+still exists in the schema but its `anon` execute grant was **revoked on
+2026-07-12**, right after the cutover — it is dead code from the client's
+perspective now, kept only so the schema history reads cleanly. Do not
+re-grant it to `anon` without a specific reason; doing so would let anyone
+reserve an item for free, bypassing Razorpay entirely.
 
 Neither `anon` nor `authenticated` can read, insert, or update `orders`
 directly — RLS is enabled with zero policies (deny-all). The only way in is
-through `place_order()`, which bypasses RLS because it's `SECURITY
-DEFINER`. This is deliberate: `orders` holds buyer name/email/address, and
-nothing in the browser should ever be able to list or scrape it. Likewise
-`products` has no public write policy — `anon` can only mutate a row via
-`place_order()`, never with a raw `UPDATE`. Schema + function are both in
-`supabase/schema.sql`.
+through `place_order_paid()`, which bypasses RLS because it's `SECURITY
+DEFINER`, and which only the Edge Function (service-role) can call. This is
+deliberate: `orders` holds buyer name/email/address, and nothing in the
+browser should ever be able to list or scrape it. Likewise `products` has no
+public write policy. Schema + functions are both in `supabase/schema.sql`.
 
-On load, `<script>` fetches from Supabase (`_productsReady`, 2.5s timeout)
-into `PRODUCTS`. If the fetch fails or times out, `PRODUCTS` stays on
-`FALLBACK_PRODUCTS` — a hardcoded array kept in sync manually as a safety
-net, same defensive pattern as the currency-rate fetch. Row Level Security
-on the table allows public `SELECT` only; there is no public write path, no
-auth, and no admin UI — catalog edits happen from the Supabase dashboard
-(Table Editor or SQL Editor) directly.
+`web/src/lib/products.ts`'s `fetchProducts()` (server-side, called from
+every SSR page) queries Supabase directly; on failure it falls back to a
+small hardcoded `FALLBACK_PRODUCTS` array in the same file — kept in sync
+manually as a safety net. RLS on the table allows public `SELECT` only; there
+is no public write path from the browser — catalog edits happen from
+`web/public/admin.html` or the Supabase dashboard directly.
 
 Add `image:'data-uri-or-path'` (or the `image` column) to any item and it
 automatically shows a real photo instead of the placeholder/sketch — see
@@ -116,38 +135,47 @@ Set `reference_image: true` alongside a photo that isn't the actual DOKU
 piece — `frame()` renders the "Reference image — not the actual piece"
 disclosure for it. See Hard rule 1 — this is not optional.
 
-## Payments — Razorpay (test mode, staged; NOT live)
-Built in test mode, staged in `doku-site_9.html` only — the live `index.html`
-still uses the reserve-only checkout. Domestic **INR** only for now.
-- **Why Edge Functions:** the static site can't hold a secret, so payments run
-  through two Supabase Edge Functions. The Razorpay **secret key** lives as a
-  Supabase secret (`RAZORPAY_KEY_SECRET`); only the public `key_id` ever
-  reaches the browser.
+## Payments — Razorpay (LIVE on discoverdoku.com, test mode only)
+Live since the 2026-07-12 cutover — `web/src/pages/checkout.astro` is the
+real checkout, not a staged alternative. Domestic **INR** only for now.
+Razorpay itself is still in **test mode**: KYC/PAN hasn't cleared, so no live
+keys exist yet and real customer cards will fail. The owner was told this
+explicitly and chose to go live anyway.
+- **Why Edge Functions:** Astro's SSR Worker still shouldn't hold the
+  Razorpay secret key directly in client-reachable code, so payments run
+  through two Supabase Edge Functions (`supabase/functions/`). The secret key
+  lives as a Supabase secret (`RAZORPAY_KEY_SECRET`); only the public
+  `key_id` ever reaches the browser.
   - `razorpay-create-order` — computes the INR charge **server-side** from
     catalog prices (USD→INR, so the amount can't be tampered with client-side)
-    and creates the Razorpay order.
+    and creates the Razorpay order. CORS locked to `https://discoverdoku.com`.
   - `razorpay-verify-payment` — verifies the HMAC signature, re-confirms with
-    Razorpay that the payment captured, then reserves.
-- **DB:** `place_order_paid()` (migration `razorpay_payments`) mirrors
-  `place_order` but forces INR, records `razorpay_order_id` /
-  `razorpay_payment_id` / `amount_inr` on `orders`, is **idempotent** on
-  payment id, and is **server-only** (revoked from `anon`; granted to
-  `service_role`). The browser can never reserve without a verified payment.
-- **Client:** checkout does create-order → Razorpay Checkout modal → verify →
-  reserve. Card data is entered in Razorpay's secure modal — DOKU never sees or
-  stores it (the old simulated card fields were removed from `doku-site_9.html`).
-- **Go-live checklist** (needs owner + PAN/KYC): flip to live keys, revoke the
-  `anon` grant on the old `place_order` (so payment becomes the *only* reserve
-  path), lock the Edge Function CORS to `discoverdoku.com`, rewrite Hard rule 4
-  and the on-site "simulation" copy, and copy `doku-site_9.html` → `index.html`.
+    Razorpay that the payment captured, then calls `place_order_paid()`.
+    CORS locked to `https://discoverdoku.com`.
+- **DB:** `place_order_paid()` (migration `razorpay_payments`) forces INR,
+  records `razorpay_order_id` / `razorpay_payment_id` / `amount_inr` on
+  `orders`, is **idempotent** on payment id, and is **server-only** (`anon`
+  has no grant; only `service_role` can call it). The browser can never
+  reserve without a verified payment.
+- **Client:** `web/src/pages/checkout.astro` does create-order → Razorpay
+  Checkout modal → verify → reserve. Card data is entered in Razorpay's
+  secure modal — DOKU never sees or stores it.
+- **What's still needed to accept real payments:** PAN/KYC completion, then
+  swap `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` (Supabase → Edge Functions →
+  Manage secrets) to live values. Nothing else — CORS is already locked, the
+  old free `place_order()` grant is already revoked, and the cutover is done.
 
-## Admin — `admin.html`
-A **separate, standalone page** (not part of the public SPA, not linked from
-it) for managing the catalog and viewing orders. Kept separate on purpose:
-it needs a persistent auth session, which means Supabase's default
-`localStorage` — allowed here precisely because it is NOT the public
-never-reloading SPA that Hard rule 3 was written for. Do not fold this into
-`doku-site_9.html`.
+## Admin — `web/public/admin.html`
+A **separate, standalone page** (not part of the Astro app's routes, not
+linked from the public site) for managing the catalog and viewing orders.
+Kept separate on purpose: it needs a persistent auth session, which means
+Supabase's default `localStorage` — allowed here precisely because it is NOT
+the public site that Hard rule 3 governs. It's served as a plain static
+asset by the `doku-web` Worker (via `web/public/`, which Astro copies
+verbatim into the build), not rendered by Astro itself — do not fold it into
+the Astro app's routing. **A duplicate copy still sits at the repo root**
+(`admin.html`) from before the cutover — that copy is dead (no longer
+served) and is cleanup debt; edit `web/public/admin.html` only.
 - **Auth:** Supabase Auth (email/password). Admin accounts are the rows in the
   `admins` allowlist — currently `apoorvverma0396@gmail.com` and
   `admin@discoverdoku.com`. Write access is gated on `admins` membership via
@@ -173,39 +201,41 @@ never-reloading SPA that Hard rule 3 was written for. Do not fold this into
   in `supabase/schema.sql`.
 
 ## Data & privacy — actual current behavior
-- **No `localStorage`/`sessionStorage` anywhere** — cart, currency, and
-  consent state are in-memory JS only. See Hard rule 3.
-- **On the live site, checkout transmits only buyer/shipping data, never card
-  data.** The submit handler calls the `place_order()` RPC (name/email/address
-  → `orders`); the card fields it collects go nowhere (reserve-only, Hard rule
-  4). The staged Razorpay build (`doku-site_9.html`) removes the card fields
-  entirely — card data is entered in Razorpay's modal, never touching DOKU.
-- **Currency & region.** On entry a region bar (`#region-bar`) maps the
-  visitor's country/region to a currency (USD/EUR/GBP/INR/JPY), and USD for
-  anything unsupported; it's locale-guessed and stores nothing (so it reappears
-  each session, per Hard rule 3). Conversion uses live rates from the
-  Frankfurter API with hardcoded fallbacks; `setCurrency()` is the shared entry
-  point for both the region bar and the manual switcher.
-- **"Inquire" and "Notify me" forms DO submit** — to Web3Forms
+- **No `localStorage`/`sessionStorage` anywhere.** Cart is a signed httpOnly
+  cookie; currency is a plain display-only cookie; consent state is
+  unpersisted (reappears each session). See Hard rule 3.
+- **Checkout transmits buyer/shipping data plus a verified Razorpay payment —
+  never raw card data.** `web/src/pages/checkout.astro` sends name/email/
+  address to `place_order_paid()` only after `razorpay-verify-payment`
+  confirms the charge; card details are entered in Razorpay's own secure
+  modal and never reach DOKU's code at all.
+- **Currency & region.** `RegionBar.astro` maps the visitor's guessed country/
+  region to a currency (USD/EUR/GBP/INR/JPY, USD fallback) via a plain,
+  unsigned, display-only cookie (`web/src/lib/currency.ts` / `currency-client.ts`) —
+  never a trust boundary, since the real charge is always computed
+  server-side from catalog USD prices. Conversion uses live Frankfurter API
+  rates with hardcoded fallbacks.
+- **"Inquire" (and "Notify me" on item pages) DO submit** — to Web3Forms
   (`api.web3forms.com`), carrying whatever name/email/message the visitor
-  enters (`WEB3FORMS_KEY` near the top of `<script>`, a public/domain-scoped
-  key by Web3Forms' design, not a secret). Both forms disclose this inline
-  via `.fine-print`, linking to `#/privacy`.
-- **Google Analytics (GA4, ID `G-S1MKLYC4QS`) is consent-gated.** The `<head>`
-  snippet defines a `gtag` stub and a `loadAnalytics()` function but does
-  *not* load the GA script or fire `config` on page load. The
-  `#consent-bar` UI only calls `loadAnalytics()` if the visitor clicks
-  Accept; Decline (or ignoring the bar) means no GA request ever fires.
-  Because there's no storage, the bar reappears each session — same
-  intentional tradeoff as Hard rule 3.
-- `#/privacy` is the single source of truth for what's collected and where
-  it goes — keep it in sync if any of the above changes.
+  enters (`WEB3FORMS_KEY` in `web/src/lib/forms.ts`, a public/domain-scoped
+  key by Web3Forms' design, not a secret). Both disclose this inline via
+  `.fine-print`, linking to `/privacy`.
+- **Google Analytics (GA4, ID `G-S1MKLYC4QS`) is consent-gated.** `Base.astro`'s
+  `<head>` snippet defines a `gtag` stub and `loadAnalytics()` but doesn't
+  load the GA script or fire `config` on page load. `ConsentBar.astro` only
+  calls `loadAnalytics()` on Accept; Decline (or ignoring the bar) means no
+  GA request ever fires.
+- `/privacy` (`web/src/pages/privacy.astro`) is the single source of truth
+  for what's collected and where it goes — keep it in sync if any of the
+  above changes.
 
 ## Known gaps / likely next steps
 - No real product photography yet — placeholders and sketches throughout
-- **Payments not live.** Razorpay is built + verified in test mode (see
-  "Payments") but staged in `doku-site_9.html`; going live needs PAN/KYC, live
-  keys, and the cutover checklist. Domestic INR only — international cards need
+- **Razorpay real payments not yet possible.** The integration itself is
+  live and correct (see "Payments") but running in test mode — PAN/KYC isn't
+  done, so no live keys exist. Real customer cards will fail at checkout
+  until that clears and `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are swapped
+  to live values. Domestic INR only even then — international cards need
   separate Razorpay activation.
 - No *customer* accounts — buyers still check out as guests (by design).
   Admin auth exists (see Admin), but shoppers have no login.
@@ -214,3 +244,9 @@ never-reloading SPA that Hard rule 3 was written for. Do not fold this into
   emails can't be delivered (rotate the password in-app instead).
 - Leaked-password protection (HaveIBeenPwned) is off in Supabase Auth — it's a
   Pro-plan feature, parked (not worth a plan upgrade on its own).
+- **Cleanup debt from the migration:** `doku-site_9.html`, root `index.html`,
+  the root `doku` Cloudflare Worker/`wrangler.jsonc`, and the root
+  `admin.html` copy are all dead now that `discoverdoku.com` serves
+  `doku-web` from `web/`. Nothing was deleted during the cutover itself
+  (lower-risk to leave them and confirm stability first) — worth an explicit
+  pass to remove them once the Astro site has been live a while without issues.

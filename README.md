@@ -67,4 +67,4 @@ Museum-quiet. The silence of a rare object in a lit case. No bounce, no urgency,
 ### Reference files in this repo
 - [`design.md`](design.md) — full living design system (colors, type scale, motion, every component)
 - [`CLAUDE.md`](CLAUDE.md) — brand voice, hard rules, data model
-- [`doku-site_9.html`](doku-site_9.html) — the live site; search for `.logo`, `.hero-brand`, `.logo-mark` to see the current wordmark in context
+- `web/src/components/Header.astro`, `web/src/styles/shell.css` — the live site's wordmark (`.logo`) and hero (`web/src/pages/index.astro`, `web/src/styles/hero.css`, `.hero-brand`) in context. The live site itself is at [discoverdoku.com](https://discoverdoku.com). (`doku-site_9.html` at the repo root is the pre-migration version — no longer what's deployed, kept for reference only.)

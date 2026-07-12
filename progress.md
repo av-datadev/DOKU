@@ -301,33 +301,76 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 
 ---
 
+## Session 13 — 2026-07-11/12 — Astro migration + cutover
+
+**The single-file HTML SPA has been fully replaced.** `discoverdoku.com` now
+serves an **Astro 5 SSR app on Cloudflare Workers** (`web/`), not
+`doku-site_9.html`/`index.html`. Full detail lives in the `feat/astro-migration`
+commit history and Claude project memory; summarized here.
+
+### Why
+Real per-item URLs (`/item/014`, not `#/item/014`) for actual SEO, and a
+signed server-verified cart cookie instead of in-memory JS state that only
+worked because the old site never reloaded a route.
+
+### Steps 1–5 (2026-07-11)
+Ported shell (header/footer/nav/mobile drawer), catalogue (`Frame` vitrine
+enforcing Hard rules 1–2, `/collection` filters, SSR `/item/[sku]`), cart +
+`POST /api/cart` (signed httpOnly cookie), full staged Razorpay checkout
+(`/cart` → `/checkout` → `/confirmation`), and currency/region/consent
+(`lib/currency.ts`, `RegionBar`, `ConsentBar`, GA4 gated on Accept).
+
+### Step 6 — real content, not placeholders
+Replaced the "Astro migration — scaffold" homepage and four `Placeholder`-
+component stub pages with the real ported content: hero/marquee/manifesto/
+carousel on `index.astro`; `archive.astro` (live client-side search);
+`provenance.astro` (full 5-chapter editorial + live stats); `inquire.astro`
+(Web3Forms, validation, `generate_lead` event); `privacy.astro` (rewritten
+for the actual cookie-based architecture, not copied verbatim from the old
+in-memory-JS framing). Fixed a real gap found along the way: `.serif` was
+used throughout `ItemCard`/`Frame` but never defined in the port.
+
+### Step 7 — the actual cutover
+1. Locked Razorpay Edge Function CORS from `*` to `https://discoverdoku.com` (Supabase, both v5).
+2. Merged `feat/astro-migration` → `main` (confirmed inert at the time — the live Worker still deployed from the root static config).
+3. **Cloudflare account split discovered mid-cutover:** the domain + old `doku` Worker live under a Cloudflare account owned/billed under a different email than the operator's own login (the operator is an admin *member* of that account). Pinned `account_id` explicitly in `web/wrangler.jsonc` once confirmed via `wrangler deployments list --name doku`, so the deploy couldn't land in the wrong account.
+4. `CLOUDFLARE_API_TOKEN` only works from `~/.zshenv`, not `~/.zshrc` — zsh only sources `.zshrc` for interactive shells; the automation runs non-interactive ones.
+5. Added `routes: [{ pattern: "discoverdoku.com", custom_domain: true }]` to `web/wrangler.jsonc` — one `wrangler deploy` both ships the build and claims the domain from the old Worker (Cloudflare allows only one Worker per custom domain), so no manual dashboard step was needed.
+6. First deploy attempt failed: wrangler refuses to upload a `_worker.js` directory as a public asset (would expose server source). Fixed with `web/public/.assetsignore` (containing `_worker.js`) — placed under `public/` specifically so it survives every rebuild, unlike putting it in `dist/` directly.
+7. Set `CART_SECRET` as a real Cloudflare Worker secret (`wrangler secret put`) — previously only a local-`.env` build-time fallback.
+8. Deployed. Verified live: `/`, `/collection`, `/item/014`, `/archive`, `/provenance`, `/inquire`, `/privacy` all 200 with real Astro markup.
+9. **Regression caught post-deploy:** `admin.html` only ever lived at the repo root, which the new Worker never served. The Cloudflare Access gate still 302'd correctly (zone-level, unaffected by the Worker swap), but anyone who authenticated would have hit a 404. Fixed by copying it into `web/public/admin.html` and redeploying. The repo-root copy is now dead weight — cleanup item, not maintained in parallel.
+10. **Only after confirming the domain switch was live**, revoked `anon`'s execute grant on the old `place_order()` RPC in Supabase — closes the free-reservation bypass the pre-Astro checkout depended on. Deliberately sequenced last: doing it earlier would have broken the still-live old site mid-migration.
+
+### What's still open
+Razorpay is live in **test mode only** — KYC/PAN isn't done, so no live keys exist and real customer cards will fail at checkout. The owner was told this explicitly before confirming go-live and chose to proceed anyway. Swapping `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to live values whenever KYC clears is the only remaining step — everything else from the original migration scope is done.
+
+---
+
 ## Current State
 
-| File | Status | Notes |
+**`discoverdoku.com` is live on Astro (`doku-web` Cloudflare Worker), as of Session 13 (2026-07-12).** The single-file HTML SPA is retired from production.
+
+| Path | Status | Notes |
 |---|---|---|
-| `doku-site_8.html` | Baseline | Original version, kept intact |
-| `doku-site_9.html` | **Active** | Public site — all shopper-facing changes live here |
-| `admin.html` | **New** | Authenticated admin page — catalog + orders management |
-| `CLAUDE.md` | Updated | Now documents the admin page + auth model |
-| `design.md` | Updated | Living design system |
-| `progress.md` | Updated | This file |
-| `supabase/schema.sql` | Updated | products, orders, place_order(), admins, is_admin(), admin policies |
+| `web/` | **Live** | Astro 5 SSR app — this is what `discoverdoku.com` actually serves |
+| `web/src/pages/*.astro` | Live | Real routes: `/`, `/collection`, `/item/[sku]`, `/cart`, `/checkout`, `/confirmation`, `/archive`, `/provenance`, `/inquire`, `/privacy` |
+| `web/public/admin.html` | **Live** | Authenticated admin page — catalog + orders management. Served as a static asset by `doku-web`, not part of Astro's routing |
+| `web/wrangler.jsonc` | Live config | `account_id` pinned (domain lives under a different Cloudflare account than the operator's default), `routes: custom_domain:true` for `discoverdoku.com` |
+| `web/public/.assetsignore` | Live | Excludes `_worker.js` (server code) from being served as a public static file |
+| `CART_SECRET` | Live Cloudflare secret | Set via `wrangler secret put`, not baked into the build |
+| `doku-site_9.html`, `index.html` (repo root), `wrangler.jsonc` (repo root), `admin.html` (repo root) | **Dead / legacy** | Pre-migration SPA and its deploy artifacts. Still in the repo (nothing deleted), but no longer what's served — cleanup debt, not a live path. Do not edit expecting production impact |
+| `supabase/schema.sql` | Updated | `products`, `orders`, `place_order()` (anon grant **revoked** post-cutover), `place_order_paid()` (server-only, the live reserve path), `admins`, `is_admin()`, admin policies |
+| `supabase/functions/razorpay-create-order/`, `razorpay-verify-payment/` | Live, CORS locked | Both locked to `https://discoverdoku.com` (was `*` pre-cutover) |
 | `supabase/seed.sql` | Existing | One-time catalog migration (already applied) |
-| `images/` | Existing | Reference photos for SKUs 017 and 018 (also now in Supabase) |
-| `Videos/` | Existing, unused | Logo-reveal clip — built and reverted Session 5 |
-| `.claude/launch.json` | Fixed | Serves from `/Applications/Repos/Repo/DOKU` |
-| `index.html` | **New** | Deploy entry point (copy of `doku-site_9.html`) |
-| `wrangler.jsonc` | **New** | Cloudflare Workers static-assets config |
-| `.assetsignore` | **New** | Excludes non-site files from the public deploy bundle |
-| `supabase/functions/razorpay-create-order/` | **New** | Edge fn — server-side INR order creation (Session 12) |
-| `supabase/functions/razorpay-verify-payment/` | **New** | Edge fn — signature verify + reserve (Session 12) |
-| `supabase/migrations/20260707_razorpay_payments.sql` | **New** | `place_order_paid()` + payment columns on `orders` |
+| `images/` | Existing | Reference photos for SKUs 017 and 018 (also in Supabase) |
+| `.claude/launch.json` | Has two configs | `doku-site` (old static site, port 7432) and `doku-astro` (the live app, port 7433 — use this one) |
 
 **5 available objects** — 014, 015, 016, 017, 018. SKUs 017 and 018 show reference images with disclosure label.
 
 **3 coming-soon objects** — 019, 020, 021. All three use gold-line SVG sketches, no undisclosed photos.
 
-**Live integrations:** Supabase (product catalog + order persistence), Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics, consent-gated).
+**Live integrations:** Supabase (product catalog + order persistence), Razorpay (checkout, **test mode only**), Web3Forms (forms → email), Frankfurter API (currency rates), GA4 (analytics, consent-gated).
 
 ---
 
@@ -347,7 +390,8 @@ Built on top of `doku-site_8.html`. All existing functionality is preserved (rou
 ### Infrastructure (before going live)
 - [x] **Product catalog database** — Live in Supabase as of Session 7.
 - [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
-- [~] **Real payment processor** — **Razorpay (domestic INR) built + verified in test mode** (Session 12): two Edge Functions + `place_order_paid()`, staged in `doku-site_9.html`. Remaining: one successful captured-payment test (domestic method), then go-live (PAN/KYC → live keys, revoke anon `place_order`, lock CORS, rewrite Hard Rule 4/"simulation" copy, cut dev→`index.html`).
+- [~] **Real payment processor** — **Razorpay (domestic INR) live on `discoverdoku.com`** (Session 13 cutover): two Edge Functions + `place_order_paid()`, CORS locked, old free `place_order` revoked from `anon`. Only remaining: PAN/KYC completion, then swap `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to live values — real customer cards fail until then.
+- [x] **Astro migration + cutover** — `discoverdoku.com` moved from the single-file HTML SPA to Astro 5 SSR on Cloudflare Workers (Session 13, 2026-07-12). See Session 13 above for the full sequence. Legacy files (`doku-site_9.html`, root `index.html`/`wrangler.jsonc`/`admin.html`) are dead but not yet deleted — worth a cleanup pass once the new site has proven stable.
 - [x] **Region → currency bar** — live on `discoverdoku.com` (Session 12): region select on entry → currency, USD fallback, no storage.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.
