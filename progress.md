@@ -453,6 +453,27 @@ stepper, deletion round-trip) need a live magic-link session to exercise fully �
 built on the proven `address.ts` / orders-read pattern, left for a signed-in
 click-through.
 
+## Session 17 — 2026-07-15 — Checkout now requires sign-in (guest checkout retired)
+Owner decision, an explicit override of the "guest checkout is the default"
+principle: an account is now **required to complete a purchase**. Chosen gate
+point: **at checkout**, not at "Hold this DOKU" — browsing and building a cart
+stay fully guest-open; only the final claim is gated.
+- **`/checkout`**: a guest with a non-empty cart now sees an inline passwordless
+  sign-in gate (held items shown + preserved — the cart cookie is independent of
+  auth) instead of the payment form. Signed-in shoppers get the form as before.
+- **Return-to-checkout**: the gate posts to `/api/auth/magic-link` with
+  `next=/checkout`; the destination is stashed in a short-lived httpOnly
+  `doku_auth_next` cookie (set in magic-link, read + cleared in `/auth/callback`)
+  — so **no Supabase redirect-URL allow-list change** was needed. `next` is a
+  local path only (open-redirect guard in magic-link, callback, and login).
+- **`/login`** threads `?next=` through the form + resend link and shows
+  checkout-specific copy; a signed-in visitor with `?next=` skips straight there.
+- Docs updated: `CLAUDE.md` ("Customer accounts" retitled/rewritten + Known
+  gaps), `/privacy`. Verified on dev: guest can still hold; `/checkout` shows the
+  gate (no payment form) with items preserved; `/login?next=/checkout` renders
+  the threaded field + copy; `//evil.com` open-redirect is rejected; `astro
+  build` clean.
+
 ---
 
 ## Current State

@@ -11,11 +11,19 @@ import { supabaseServer } from '../../../lib/auth';
 // from THIS request's origin so it's correct in dev (localhost) and prod
 // (discoverdoku.com) without hardcoding — both origins must be in Supabase
 // Auth → URL Configuration → Redirect URLs for the link to be accepted.
+// A `next` may ride along (e.g. from the checkout sign-in gate) so the link
+// lands the shopper back where they were instead of /account. Only a local path
+// is honoured (must start with a single '/'), to prevent an open redirect.
+const AUTH_NEXT_COOKIE = 'doku_auth_next';
+const safeNext = (v: string) => (/^\/(?!\/)/.test(v) ? v : '');
+
 export const POST: APIRoute = async ({ request, cookies, url }) => {
   const form = await request.formData();
   const email = String(form.get('email') ?? '').trim().toLowerCase();
+  const next = safeNext(String(form.get('next') ?? ''));
 
   const back = (params: Record<string, string>) => {
+    if (next) params.next = next;
     const q = new URLSearchParams(params).toString();
     return new Response(null, { status: 303, headers: { Location: `/login?${q}` } });
   };
@@ -31,6 +39,18 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     email,
     options: { emailRedirectTo: `${url.origin}/auth/callback` },
   });
+
+  // Remember the post-sign-in destination server-side (read in /auth/callback).
+  // Kept out of emailRedirectTo on purpose: a query-string redirect target would
+  // need separate Supabase allow-listing; a cookie in the same browser doesn't.
+  if (next) {
+    cookies.set(AUTH_NEXT_COOKIE, next, {
+      path: '/', httpOnly: true, sameSite: 'lax',
+      secure: url.protocol === 'https:', maxAge: 60 * 60,
+    });
+  } else {
+    cookies.delete(AUTH_NEXT_COOKIE, { path: '/' });
+  }
 
   // Even on error we report "sent" to avoid account enumeration; a genuinely
   // broken send just means the link never arrives, and the user retries.

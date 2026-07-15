@@ -19,10 +19,12 @@ const skuList = items.map((p) => p.sku);
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
 const rates = await fetchRates();
 
-// If the shopper is signed in, prefill the form from their saved address + email
-// so checkout is one confirmation, not a re-typing. Guests see an empty form and
-// a gentle nudge that signing in would fill it — never a wall; accounts stay
-// optional (Hard rule: never imply a barrier that isn't there).
+// Completing a purchase requires a (passwordless) account — browsing and holding
+// items stay fully open to guests, but the final claim is gated here so every
+// order is tied to an account (owner decision, 2026-07-15; supersedes the
+// earlier "guest checkout" default). A signed-in shopper gets the form,
+// prefilled from their saved address + email so checkout is one confirmation;
+// a guest gets an inline sign-in gate instead, with their held items preserved.
 const { user, supabase } = Astro.locals;
 let saved: { full_name: string; address: string; city: string; postcode: string; country: string } | null = null;
 if (user) {
@@ -66,13 +68,27 @@ const pf = {
           <span>Total</span><span class="serif" data-usd={total}>{formatMoney(total, currency, rates)}</span>
         </div>
 
-        {!user && (
-          <p class="fine-print" style="margin-bottom:18px;">
-            Have an account? <a href="/login">Sign in</a> to fill this from a saved address. Not required — carry on as a guest.
-          </p>
-        )}
-
-        <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)} data-signed-in={user ? '1' : '0'}>
+        {!user ? (
+          <div class="signin-gate">
+            <div class="page-head" style="margin:8px 0 20px;">
+              <h2 class="serif" style="font-size:1.35rem; margin-bottom:6px;">Sign in to claim</h2>
+              <p>Your held pieces stay held. Completing the purchase takes a quick, passwordless sign-in — it keeps the order and its progress tied to you.</p>
+            </div>
+            <form method="POST" action="/api/auth/magic-link" novalidate>
+              <input type="hidden" name="next" value="/checkout" />
+              <fieldset>
+                <legend>Email</legend>
+                <div class="form-group">
+                  <label for="gate-email">Where should the sign-in link go?</label>
+                  <input id="gate-email" type="email" name="email" required autocomplete="email" inputmode="email" />
+                </div>
+                <p class="fine-print">No password — we email a link that signs you in, then brings you back here to check out. We store only your email and, if you save one, a shipping address. See <a href="/privacy">Privacy</a>.</p>
+              </fieldset>
+              <button class="btn-gold" type="submit" style="margin-top:24px;"><span>Email me a sign-in link</span></button>
+            </form>
+          </div>
+        ) : (
+        <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)} data-signed-in="1">
           <fieldset>
             <legend>Shipping to</legend>
             <div class="form-group"><label for="full-name">Full name</label><input id="full-name" name="fullName" required autocomplete="name" value={pf.fullName} /></div>
@@ -97,6 +113,7 @@ const pf = {
           <button class="btn-gold" type="submit" id="checkout-submit" style="margin-top:32px;"><span>Confirm the claim</span></button>
           <div id="checkout-result" class="claim-sub" style="margin-top:14px;"></div>
         </form>
+        )}
       </>
     )}
   </div>

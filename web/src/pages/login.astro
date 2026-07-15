@@ -3,14 +3,22 @@ import Base from '../layouts/Base.astro';
 
 // Passwordless sign-in. The form posts (no JS required) to /api/auth/magic-link,
 // which emails a one-time link; clicking it lands on /auth/callback and the
-// session is set. Already-signed-in visitors have no reason to be here.
-if (Astro.locals.user) return Astro.redirect('/account');
+// session is set.
+//
+// ?next=… is where to land after sign-in (e.g. /checkout, from the checkout
+// gate). Local paths only — never an off-site redirect. Already-signed-in
+// visitors skip straight there (or to /account).
+const nextRaw = Astro.url.searchParams.get('next') ?? '';
+const next = /^\/(?!\/)/.test(nextRaw) ? nextRaw : '';
+if (Astro.locals.user) return Astro.redirect(next || '/account');
 
 // ?sent=1 → we just emailed a link. ?error=… → something went wrong. The email
 // is echoed back purely to reassure ("we sent it there"), never trusted.
 const sent = Astro.url.searchParams.get('sent') === '1';
 const sentTo = Astro.url.searchParams.get('to') ?? '';
 const error = Astro.url.searchParams.get('error');
+const resendHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
+const forCheckout = next === '/checkout';
 ---
 
 <Base title="Sign in — DOKU">
@@ -18,16 +26,19 @@ const error = Astro.url.searchParams.get('error');
     <div class="page-head">
       <div class="eyebrow">Your account</div>
       <h1 class="serif">Sign in</h1>
-      <p>No passwords. We send a link; it signs you in. Optional — you never need an account to buy.</p>
+      <p>{forCheckout
+        ? 'One step before you claim. We send a link; it signs you in — no password. Your held pieces stay held.'
+        : 'No passwords. We send a link; it signs you in.'}</p>
     </div>
 
     {sent ? (
       <div class="story-block">
-        <p>Check your inbox{sentTo ? <> at <strong>{sentTo}</strong></> : null}. The link signs you in — it works once, and only on this device.</p>
-        <p class="fine-print">Didn't arrive? <a href="/login">Send another</a>. Give it a minute; check spam.</p>
+        <p>Check your inbox{sentTo ? <> at <strong>{sentTo}</strong></> : null}. The link signs you in — it works once, and only on this device{forCheckout ? <>, then brings you back to check out</> : null}.</p>
+        <p class="fine-print">Didn't arrive? <a href={resendHref}>Send another</a>. Give it a minute; check spam.</p>
       </div>
     ) : (
       <form method="POST" action="/api/auth/magic-link" novalidate>
+        {next && <input type="hidden" name="next" value={next} />}
         {error && (
           <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
             That didn't work. Try requesting a fresh link.

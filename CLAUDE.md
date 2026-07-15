@@ -167,13 +167,25 @@ explicitly and chose to go live anyway.
   Manage secrets) to live values. Nothing else — CORS is already locked, the
   old free `place_order()` grant is already revoked, and the cutover is done.
 
-## Customer accounts (public site) — optional, passwordless
-Shoppers can **optionally** sign in with a **magic link** (Supabase Auth,
-passwordless). Accounts are pure convenience — **guest checkout is unchanged
-and still the default**; nothing about buying requires an account. What an
-account adds: **see your own past orders** (with fulfillment status), **save one
-shipping address** that prefills checkout, and **keep a wishlist** of pieces
-you're watching. Accounts are also self-service **deletable**.
+## Customer accounts (public site) — passwordless; required to buy
+Shoppers sign in with a **magic link** (Supabase Auth, passwordless). **Browsing
+and holding items into the cart are fully open to guests** — no account needed to
+look or to build a cart. **Completing a purchase requires an account, though:**
+`/checkout` gates the final claim behind a passwordless sign-in (owner decision,
+2026-07-15 — this **supersedes the earlier "guest checkout is the default"**
+model; every order is now tied to an account). The gate is at checkout only, not
+at "Hold this DOKU". What an account adds beyond checkout: **see your own past
+orders** (with fulfillment status), **save one shipping address** that prefills
+checkout, and **keep a wishlist** of pieces you're watching. Accounts are also
+self-service **deletable**.
+- **Checkout sign-in gate:** a guest at `/checkout` (with a non-empty cart) sees
+  an inline sign-in block instead of the payment form — the held items are shown
+  and preserved (the cart is an independent signed cookie, untouched by auth). It
+  posts to `/api/auth/magic-link` with `next=/checkout`; after the link is
+  clicked, `/auth/callback` reads a short-lived httpOnly `doku_auth_next` cookie
+  and returns them to `/checkout` (default `/account`). `next` is a local path
+  only (open-redirect guard). No Supabase redirect-URL allow-list change was
+  needed — the destination rides a cookie, not `emailRedirectTo`.
 - **Session storage:** unlike `admin.html` (Supabase's default `localStorage`,
   allowed there because it's a separate non-public page), the public-site
   session lives in **httpOnly cookies** via `@supabase/ssr`
@@ -303,14 +315,15 @@ served) and is cleanup debt; edit `web/public/admin.html` only.
   until that clears and `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are swapped
   to live values. Domestic INR only even then — international cards need
   separate Razorpay activation.
-- **Customer accounts are fully live.** The passwordless account flow (login,
-  order history + fulfillment status, saved address, wishlist/waitlist, and
-  self-service deletion) is built; magic-link delivery works (custom SMTP + the
-  allow-listed callback redirect URL, done 2026-07-15). Guest checkout remains
-  the default and is unaffected. See "Customer accounts". Still not built: a
-  functional off-market "hold" (deliberately — conflicts with the one-of-one +
-  "reserved = paid" model), and order status stops at `delivered` (no returns
-  flow).
+- **Customer accounts are fully live and now required to buy.** The passwordless
+  flow (login, order history + fulfillment status, saved address, wishlist/
+  waitlist, self-service deletion) is built; magic-link delivery works (custom
+  SMTP + the allow-listed callback redirect URL, done 2026-07-15). **As of
+  2026-07-15 the final checkout is gated behind sign-in** (browsing + holding
+  stay open to guests) — this replaced the earlier guest-checkout default at the
+  owner's request. See "Customer accounts". Still not built: a functional
+  off-market "hold" (deliberately — conflicts with the one-of-one + "reserved =
+  paid" model), and order status stops at `delivered` (no returns flow).
 - No domain email yet — `enquiry@` / `admin@discoverdoku.com` mailboxes
   (Google Workspace) are planned but not set up, so `admin@` password-reset
   emails can't be delivered (rotate the password in-app instead).
