@@ -1,9 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
+import { phoneAuthEnabled } from '../lib/flags';
 
-// Passwordless sign-in. The form posts (no JS required) to /api/auth/magic-link,
-// which emails a one-time link; clicking it lands on /auth/callback and the
-// session is set.
+// Passwordless sign-in. Two methods:
+//   • Email — posts (no JS) to /api/auth/magic-link, which emails a one-time
+//     link; clicking it lands on /auth/callback and the session is set.
+//   • Mobile — posts to /api/auth/phone-otp (send → verify), an SMS 6-digit
+//     code entered on-page. Only shown when phoneAuthEnabled (an SMS provider +
+//     India DLT must be configured first); otherwise this is email-only exactly
+//     as before.
 //
 // ?next=… is where to land after sign-in (e.g. /checkout, from the checkout
 // gate). Local paths only — never an off-site redirect. Already-signed-in
@@ -12,13 +17,24 @@ const nextRaw = Astro.url.searchParams.get('next') ?? '';
 const next = /^\/(?!\/)/.test(nextRaw) ? nextRaw : '';
 if (Astro.locals.user) return Astro.redirect(next || '/account');
 
-// ?sent=1 → we just emailed a link. ?error=… → something went wrong. The email
-// is echoed back purely to reassure ("we sent it there"), never trusted.
+const phoneOn = phoneAuthEnabled(Astro.locals);
+const method = phoneOn && Astro.url.searchParams.get('method') === 'phone' ? 'phone' : 'email';
+
 const sent = Astro.url.searchParams.get('sent') === '1';
-const sentTo = Astro.url.searchParams.get('to') ?? '';
 const error = Astro.url.searchParams.get('error');
-const resendHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
 const forCheckout = next === '/checkout';
+
+// Email flow state
+const sentTo = Astro.url.searchParams.get('to') ?? '';
+const emailSent = method === 'email' && sent;
+
+// Phone flow state
+const phoneParam = Astro.url.searchParams.get('phone') ?? '';
+const otpSent = method === 'phone' && sent;
+
+const withNext = (base: string) =>
+  next ? `${base}${base.includes('?') ? '&' : '?'}next=${encodeURIComponent(next)}` : base;
+const resendHref = withNext('/login');
 ---
 
 <Base title="Sign in — DOKU">
@@ -27,36 +43,98 @@ const forCheckout = next === '/checkout';
       <div class="eyebrow">Your account</div>
       <h1 class="serif">Sign in</h1>
       <p>{forCheckout
-        ? 'One step before you claim. We send a link; it signs you in — no password. Your held pieces stay held.'
-        : 'No passwords. We send a link; it signs you in.'}</p>
+        ? 'One step before you claim — no password. Your held pieces stay held.'
+        : 'No passwords. A one-time link or code signs you in.'}</p>
     </div>
 
-    {sent ? (
-      <div class="story-block">
-        <p>Check your inbox{sentTo ? <> at <strong>{sentTo}</strong></> : null}. The link signs you in — it works once, and only on this device{forCheckout ? <>, then brings you back to check out</> : null}.</p>
-        <p class="fine-print">Didn't arrive? <a href={resendHref}>Send another</a>. Give it a minute; check spam.</p>
+    {phoneOn && (
+      <div class="method-tabs">
+        <a href={withNext('/login?method=email')} class:list={['method-tab', { active: method === 'email' }]}>Email</a>
+        <a href={withNext('/login?method=phone')} class:list={['method-tab', { active: method === 'phone' }]}>Mobile</a>
       </div>
+    )}
+
+    {method === 'email' ? (
+      emailSent ? (
+        <div class="story-block">
+          <p>Check your inbox{sentTo ? <> at <strong>{sentTo}</strong></> : null}. The link signs you in — it works once, and only on this device{forCheckout ? <>, then brings you back to check out</> : null}.</p>
+          <p class="fine-print">Didn't arrive? <a href={resendHref}>Send another</a>. Give it a minute; check spam.</p>
+        </div>
+      ) : (
+        <form method="POST" action="/api/auth/magic-link" novalidate>
+          {next && <input type="hidden" name="next" value={next} />}
+          {error && (
+            <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
+              That didn't work. Try requesting a fresh link.
+            </div>
+          )}
+          <fieldset>
+            <legend>Email</legend>
+            <div class="form-group">
+              <label for="email">Where should the link go?</label>
+              <input id="email" type="email" name="email" required autocomplete="email" inputmode="email" />
+            </div>
+            <p class="fine-print">
+              We store only your email and — if you save one — a shipping address.
+              Nothing else. See <a href="/privacy">Privacy</a>.
+            </p>
+          </fieldset>
+          <button class="btn-gold" type="submit" style="margin-top:28px;"><span>Send the link</span></button>
+        </form>
+      )
     ) : (
-      <form method="POST" action="/api/auth/magic-link" novalidate>
-        {next && <input type="hidden" name="next" value={next} />}
-        {error && (
-          <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
-            That didn't work. Try requesting a fresh link.
-          </div>
-        )}
-        <fieldset>
-          <legend>Email</legend>
-          <div class="form-group">
-            <label for="email">Where should the link go?</label>
-            <input id="email" type="email" name="email" required autocomplete="email" inputmode="email" />
-          </div>
-          <p class="fine-print">
-            We store only your email and — if you save one — a shipping address.
-            Nothing else. See <a href="/privacy">Privacy</a>.
-          </p>
-        </fieldset>
-        <button class="btn-gold" type="submit" style="margin-top:28px;"><span>Send the link</span></button>
-      </form>
+      otpSent ? (
+        <form method="POST" action="/api/auth/phone-otp" novalidate>
+          <input type="hidden" name="action" value="verify" />
+          <input type="hidden" name="phone" value={phoneParam} />
+          {next && <input type="hidden" name="next" value={next} />}
+          {error === 'code' && (
+            <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
+              That code didn't match. Check it, or request a new one.
+            </div>
+          )}
+          <fieldset>
+            <legend>Enter the code</legend>
+            <div class="form-group">
+              <label for="token">6-digit code{phoneParam ? ` sent to ${phoneParam}` : ''}</label>
+              <input id="token" name="token" required inputmode="numeric" autocomplete="one-time-code" pattern="\d{4,8}" />
+            </div>
+            <p class="fine-print">Didn't arrive? <a href={withNext('/login?method=phone')}>Send another</a>. Message rates may apply.</p>
+          </fieldset>
+          <button class="btn-gold" type="submit" style="margin-top:28px;"><span>Verify &amp; sign in</span></button>
+        </form>
+      ) : (
+        <form method="POST" action="/api/auth/phone-otp" novalidate>
+          <input type="hidden" name="action" value="send" />
+          {next && <input type="hidden" name="next" value={next} />}
+          {error === 'phone' && (
+            <div class="claim-sub" style="color:var(--gold); margin-bottom:18px;">
+              That number didn't look right. Include your country code, e.g. +91…
+            </div>
+          )}
+          <fieldset>
+            <legend>Mobile</legend>
+            <div class="form-group">
+              <label for="phone">Your mobile number, with country code</label>
+              <input id="phone" type="tel" name="phone" required autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" />
+            </div>
+            <p class="fine-print">We text a one-time code — nothing stored but the number. See <a href="/privacy">Privacy</a>.</p>
+          </fieldset>
+          <button class="btn-gold" type="submit" style="margin-top:28px;"><span>Text me a code</span></button>
+        </form>
+      )
     )}
   </div>
 </Base>
+
+<style>
+  .method-tabs { display: flex; margin-bottom: 36px; border: 1px solid var(--hairline); max-width: 320px; }
+  .method-tab {
+    flex: 1; text-align: center; padding: 13px; font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--claimed); text-decoration: none;
+    border-right: 1px solid var(--hairline); transition: color .3s var(--ease), background .3s var(--ease);
+  }
+  .method-tab:last-child { border-right: none; }
+  .method-tab.active { color: var(--gold); background: var(--gold-soft); }
+  .method-tab:not(.active):hover { color: var(--ivory); }
+</style>

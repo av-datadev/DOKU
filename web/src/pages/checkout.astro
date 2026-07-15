@@ -5,6 +5,7 @@ import { fetchProducts } from '../lib/products';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
 import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { phoneAuthEnabled } from '../lib/flags';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
@@ -26,6 +27,7 @@ const rates = await fetchRates();
 // prefilled from their saved address + email so checkout is one confirmation;
 // a guest gets an inline sign-in gate instead, with their held items preserved.
 const { user, supabase } = Astro.locals;
+const phoneOn = phoneAuthEnabled(Astro.locals);
 let saved: { full_name: string; address: string; city: string; postcode: string; country: string } | null = null;
 if (user) {
   const { data } = await supabase
@@ -86,6 +88,9 @@ const pf = {
               </fieldset>
               <button class="btn-gold" type="submit" style="margin-top:24px;"><span>Email me a sign-in link</span></button>
             </form>
+            {phoneOn && (
+              <p class="fine-print" style="margin-top:18px;">Prefer your phone? <a href="/login?method=phone&next=/checkout">Sign in with a mobile code</a> instead.</p>
+            )}
           </div>
         ) : (
         <form id="checkout-form" novalidate data-skus={JSON.stringify(skuList)} data-signed-in="1">

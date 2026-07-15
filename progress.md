@@ -476,6 +476,29 @@ stay fully guest-open; only the final claim is gated.
 
 ---
 
+## Session 18 — 2026-07-15 — Phone (SMS OTP) sign-in, built but shipped OFF
+Added a second passwordless method alongside email magic links, at the owner's
+request — but gated OFF until its infrastructure exists, so nothing broken ships.
+- **Flow:** `/api/auth/phone-otp` (`action=send` → `signInWithOtp({phone})`,
+  `action=verify` → `verifyOtp({phone,token,type:'sms'})`). Two no-JS form posts;
+  the code is entered on-page and verifyOtp sets the session directly — no
+  `/auth/callback` round-trip, so it's a nicer on-page flow than the email link.
+  `next` threads through (open-redirect guarded), so checkout return works too.
+- **UI:** `/login` shows Email/Mobile tabs; the checkout gate adds a "mobile code"
+  link. Both render **only when `PHONE_AUTH_ENABLED` = "true"** (Worker var, read
+  per request via `web/src/lib/flags.ts`). Default off → email-only, exactly as
+  before; the phone-otp route is guarded to 303 when off.
+- **Why off:** phone OTP can't send until an SMS provider (Twilio/MSG91/etc.) is
+  configured in Supabase Auth, plus **DLT registration** for +91 numbers. Flip the
+  Worker var to enable once that's live — no code change.
+- **Known limitation before enabling:** order history keys on the verified JWT
+  email, so phone-only accounts won't see email-based orders until we also
+  capture/link an email. Saved address + wishlist (auth.uid()) are unaffected.
+- Verified on dev: flag off → email-only, phone route guarded; flag on → tabs +
+  phone form + checkout mobile link render on-brand; `astro build` clean.
+
+---
+
 ## Current State
 
 **`discoverdoku.com` is live on Astro (`doku-web` Cloudflare Worker), as of Session 13 (2026-07-12).** The single-file HTML SPA is retired from production.

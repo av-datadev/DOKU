@@ -186,6 +186,19 @@ self-service **deletable**.
   and returns them to `/checkout` (default `/account`). `next` is a local path
   only (open-redirect guard). No Supabase redirect-URL allow-list change was
   needed — the destination rides a cookie, not `emailRedirectTo`.
+- **Phone sign-in (built, shipped OFF).** A second passwordless method — SMS
+  6-digit OTP (`/api/auth/phone-otp`: `signInWithOtp({phone})` → `verifyOtp`,
+  entered on-page, no `/auth/callback` round-trip). `/login` shows Email/Mobile
+  tabs and the checkout gate offers a "mobile code" link **only when the
+  `PHONE_AUTH_ENABLED` Worker var is `"true"`** (`web/src/lib/flags.ts`,
+  `phoneAuthEnabled()`); default off, and the `phone-otp` route is guarded so it's
+  inert when off. **Why off:** SMS can't send until an SMS provider (Twilio/MSG91/
+  etc.) is configured in Supabase Auth — and for +91 numbers, **DLT registration**
+  — else codes never deliver (shipping a dead sign-in path breaks Hard rule 4's
+  spirit). **Before enabling, also resolve:** order history matches on the verified
+  JWT *email* ("Buyers read own orders by email"), so a phone-only account (no
+  email) won't see email-keyed orders until we also capture/link an email; saved
+  address + wishlist (keyed on `auth.uid()`) are unaffected.
 - **Session storage:** unlike `admin.html` (Supabase's default `localStorage`,
   allowed there because it's a separate non-public page), the public-site
   session lives in **httpOnly cookies** via `@supabase/ssr`
