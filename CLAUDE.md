@@ -31,11 +31,11 @@ in Supabase (see "Data model"), with a separate authenticated admin page
 artifacts — `doku-site_8.html`, `doku-site_9.html`, `index.html`, the root
 `admin.html` copy, the root `wrangler.jsonc`, and `.assetsignore` — were
 removed from the repo on 2026-07-12 (cleanup pass after the Astro cutover
-proved stable). The live admin page is `web/public/admin.html`. **One legacy
-artifact remains, Cloudflare-side:** the old root `doku` Worker is still
-deployed but serves nothing (`discoverdoku.com` is served by `doku-web`); it
-should be deleted from the Cloudflare dashboard/API when convenient — a manual
-step, not a repo change.
+proved stable). The live admin page is `web/public/admin.html`. The old root
+`doku` Worker (which served nothing after the cutover — `discoverdoku.com` is
+served by `doku-web`) was **deleted from Cloudflare on 2026-07-15**; the
+account's Workers & Pages list now contains only `doku-web`. No migration
+cleanup debt remains, repo- or Cloudflare-side.
 
 ## Brand voice — apply to all copy, not just marketing pages
 Six traits, treated as a literal editorial standard, originally framed by the
@@ -199,13 +199,12 @@ address** that prefills checkout.
   `/account` (`/api/account/address`) or via a "save this address" checkbox at
   checkout (persisted server-side in `/api/checkout-complete`, since the browser
   can't write the httpOnly session). Prefills the checkout form when signed in.
-- **Ops steps to make magic links actually deliver (not yet done):** (1) add
+- **Ops steps to make magic links actually deliver — DONE (2026-07-15):** (1)
   `https://discoverdoku.com/auth/callback` (and `http://localhost:4321/auth/callback`
-  for dev) to Supabase → Auth → URL Configuration → Redirect URLs; (2) configure
-  **custom SMTP** — Supabase's built-in auth email is heavily rate-limited and
-  test-grade, and DOKU has no domain email yet (see gaps). Until SMTP is real,
-  the code is complete but links won't reliably arrive — the same "live in code,
-  gated on an ops step" posture as Razorpay live keys.
+  for dev) are allow-listed in Supabase → Auth → URL Configuration → Redirect URLs;
+  (2) **custom SMTP** is configured (Supabase's built-in auth email was heavily
+  rate-limited and test-grade). Magic links now deliver — the flow is fully live,
+  no longer gated on an ops step.
 - Schema (`customer_addresses`, the orders own-email read policy) is in
   `supabase/schema.sql` under "CUSTOMER ACCOUNTS".
 
@@ -281,21 +280,19 @@ served) and is cleanup debt; edit `web/public/admin.html` only.
   until that clears and `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are swapped
   to live values. Domestic INR only even then — international cards need
   separate Razorpay activation.
-- **Customer accounts exist but magic-link delivery is gated on SMTP.** The
-  passwordless account flow (login / order history / saved address) is built and
-  live in code (see "Customer accounts") — but the sign-in link won't reliably
-  arrive until custom SMTP is configured and the callback redirect URL is
-  allow-listed in Supabase (both listed there). Guest checkout remains the
-  default and is unaffected. Not yet built: wishlist/holds, order-status beyond
-  "reserved", account deletion self-service.
+- **Customer accounts are fully live.** The passwordless account flow (login /
+  order history / saved address) is built, and magic-link delivery is now
+  working — custom SMTP is configured and the callback redirect URL is
+  allow-listed in Supabase (both done 2026-07-15; see "Customer accounts").
+  Guest checkout remains the default and is unaffected. Not yet built:
+  wishlist/holds, order-status beyond "reserved", account deletion self-service.
 - No domain email yet — `enquiry@` / `admin@discoverdoku.com` mailboxes
   (Google Workspace) are planned but not set up, so `admin@` password-reset
   emails can't be delivered (rotate the password in-app instead).
 - Leaked-password protection (HaveIBeenPwned) is off in Supabase Auth — it's a
   Pro-plan feature, parked (not worth a plan upgrade on its own).
-- **Cleanup debt from the migration: mostly done.** The dead repo files
+- **Cleanup debt from the migration: done.** The dead repo files
   (`doku-site_8/9.html`, root `index.html`/`admin.html`/`wrangler.jsonc`,
-  `.assetsignore`) were deleted on 2026-07-12. **Still outstanding:** the old
-  root `doku` Cloudflare Worker is still deployed (serving nothing) and should
-  be deleted from Cloudflare when convenient — an outward-facing action, so
-  left for a human to do deliberately.
+  `.assetsignore`) were deleted on 2026-07-12, and the old root `doku`
+  Cloudflare Worker (which served nothing) was deleted from the dashboard on
+  2026-07-15. Nothing left outstanding here.

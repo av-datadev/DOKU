@@ -407,9 +407,10 @@ Deleted the dead pre-migration artifacts from the repo:
 `doku-site_8.html`, `doku-site_9.html`, root `index.html`, root `admin.html`,
 root `wrangler.jsonc`, and `.assetsignore`. Nothing live references them
 (only docs, now updated). The live admin page remains `web/public/admin.html`.
-**Still outstanding, Cloudflare-side:** the old root `doku` Worker is still
-deployed (serving nothing) — delete from the dashboard when convenient
-(outward-facing, left for a human).
+**Resolved 2026-07-15, Cloudflare-side:** the old root `doku` Worker (serving
+nothing after the cutover) was deleted from the dashboard. The account's
+Workers & Pages list now shows only `doku-web`. No migration cleanup debt
+remains.
 
 ---
 
@@ -426,8 +427,8 @@ deployed (serving nothing) — delete from the dashboard when convenient
 | `web/wrangler.jsonc` | Live config | `account_id` pinned (domain lives under a different Cloudflare account than the operator's default), `routes: custom_domain:true` for `discoverdoku.com` |
 | `web/public/.assetsignore` | Live | Excludes `_worker.js` (server code) from being served as a public static file |
 | `CART_SECRET` | Live Cloudflare secret | Set via `wrangler secret put`, not baked into the build |
-| `supabase/migrations/20260712_customer_accounts.sql` | New (not yet applied live) | `customer_addresses` + owner-only RLS, and the orders own-email read policy. Additive; apply deliberately (touches an RLS policy on the orders PII table) |
-| ~~`doku-site_8/9.html`, root `index.html`/`admin.html`/`wrangler.jsonc`, `.assetsignore`~~ | **Deleted (Session 14)** | Pre-migration SPA + its deploy artifacts, removed once the Astro site proved stable. Old root `doku` Cloudflare Worker (serves nothing) still deployed — delete from the dashboard when convenient |
+| `supabase/migrations/20260712_customer_accounts.sql` | **Applied live 2026-07-15** | `customer_addresses` + owner-only RLS, and the orders own-email read policy. Applied to project `mudyipmizlvihcldzrvh` as migration `customer_accounts` |
+| ~~`doku-site_8/9.html`, root `index.html`/`admin.html`/`wrangler.jsonc`, `.assetsignore`~~ | **Deleted (Session 14)** | Pre-migration SPA + its deploy artifacts, removed once the Astro site proved stable. Old root `doku` Cloudflare Worker (served nothing) **deleted from the dashboard 2026-07-15** — no cleanup debt remains |
 | `supabase/schema.sql` | Updated | `products`, `orders`, `place_order()` (anon grant **revoked** post-cutover), `place_order_paid()` (server-only, the live reserve path), `admins`, `is_admin()`, admin policies |
 | `supabase/functions/razorpay-create-order/`, `razorpay-verify-payment/` | Live, CORS locked | Both locked to `https://discoverdoku.com` (was `*` pre-cutover) |
 | `supabase/seed.sql` | Existing | One-time catalog migration (already applied) |
@@ -460,8 +461,8 @@ deployed (serving nothing) — delete from the dashboard when convenient
 - [x] **Order persistence** — Live in Supabase as of Session 8. Checkout reserves atomically; see Session 8 for the reserve-vs-claim decision.
 - [~] **Real payment processor** — **Razorpay (domestic INR) live on `discoverdoku.com`** (Session 13 cutover): two Edge Functions + `place_order_paid()`, CORS locked, old free `place_order` revoked from `anon`. Only remaining: PAN/KYC completion, then swap `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to live values — real customer cards fail until then.
 - [x] **Astro migration + cutover** — `discoverdoku.com` moved from the single-file HTML SPA to Astro 5 SSR on Cloudflare Workers (Session 13, 2026-07-12). See Session 13 above for the full sequence.
-- [x] **Migration cleanup** — dead pre-migration files deleted from the repo (Session 14). Remaining: delete the old root `doku` Cloudflare Worker from the dashboard (outward-facing, left for a human).
-- [~] **Customer accounts** — passwordless magic-link sign-in, order history, saved address, built Session 14 (guest checkout unchanged). Code complete; **gated on ops** for link delivery: add the `/auth/callback` redirect URLs (prod + localhost) in Supabase and configure custom SMTP. DB migration `20260712_customer_accounts.sql` not yet applied live. Not built: wishlist/holds, order-status beyond "reserved", self-service account deletion.
+- [x] **Migration cleanup** — dead pre-migration files deleted from the repo (Session 14), and the old root `doku` Cloudflare Worker deleted from the dashboard (2026-07-15). Fully done, nothing outstanding.
+- [~] **Customer accounts** — passwordless magic-link sign-in, order history, saved address, built Session 14 (guest checkout unchanged). Code complete; DB migration `20260712_customer_accounts.sql` **applied live 2026-07-15**, and the ops steps for link delivery are done (`/auth/callback` redirect URLs allow-listed in Supabase + custom SMTP configured, 2026-07-15) — magic links now deliver. Not built: wishlist/holds, order-status beyond "reserved", self-service account deletion.
 - [x] **Region → currency bar** — live on `discoverdoku.com` (Session 12): region select on entry → currency, USD fallback, no storage.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.
