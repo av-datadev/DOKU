@@ -414,6 +414,47 @@ remains.
 
 ---
 
+## Session 15 — 2026-07-15 — Customer-accounts migration applied + cutover cleanup
+Applied the customer-accounts DB migration (`20260712_customer_accounts.sql`) to
+Supabase (`mudyipmizlvihcldzrvh`, as migration `customer_accounts`):
+`customer_addresses` + owner-only RLS, and the orders own-email read policy.
+Completed the magic-link ops gates — `/auth/callback` redirect URLs allow-listed
+and custom SMTP configured, so links now deliver. Deleted the old root `doku`
+Cloudflare Worker (served nothing); the account now shows only `doku-web`.
+
+## Session 16 — 2026-07-15 — Wishlist + waitlist, order status, self-service deletion
+Built the three remaining account features (owner decisions captured up front:
+wishlist+waitlist not an off-market hold; stages reserved→confirmed→shipped→
+delivered; deletion keeps order records).
+- **Schema** (`20260715_wishlist_order_status.sql`, mirrored in `schema.sql`,
+  applied live): `wishlists` (owner-only RLS, cascades on account deletion);
+  `orders.order_status` (`reserved`→`confirmed`→`shipped`→`delivered`, default
+  `reserved`) + `orders.tracking_note`; an "Admins update orders" RLS policy.
+- **Wishlist (not a hold):** `/api/account/wishlist` (add/remove, RLS-scoped,
+  progressive-enhancement). Item page: a "Keep an eye on this" toggle for
+  available/coming-soon (signed-in; guests get "Sign in to keep a list");
+  "Watching" section on `/account`. Reserved/claimed items instead show a
+  Web3Forms "notify me if it frees up" waitlist — no DB row, same transport as
+  Notify.
+- **Order status:** buyer sees a 4-step indicator + tracking note on `/account`;
+  admins advance it per `order_code` from `admin.html`'s Orders panel.
+- **Self-service deletion:** `delete-account` Edge Function (service-role, CORS
+  locked, identifies the caller by their own JWT) deployed; `/api/account/delete`
+  (explicit confirm → Edge Fn → clear session → `/?farewell=1`). Deletes the auth
+  user + address + wishlist (cascade); **order rows kept** as receipts.
+- `/privacy` updated (wishlist + deletion). Guest checkout untouched.
+
+### Verified
+`astro build` clean; guest item pages render the wishlist prompt + waitlist form;
+`/account` and the wishlist API bounce guests to `/login`; the `delete-account`
+Edge Function rejects an invalid JWT (401); schema objects confirmed via SQL. The
+signed-in surfaces (wishlist toggle persistence, Watching list, order-status
+stepper, deletion round-trip) need a live magic-link session to exercise fully —
+built on the proven `address.ts` / orders-read pattern, left for a signed-in
+click-through.
+
+---
+
 ## Current State
 
 **`discoverdoku.com` is live on Astro (`doku-web` Cloudflare Worker), as of Session 13 (2026-07-12).** The single-file HTML SPA is retired from production.
@@ -423,7 +464,9 @@ remains.
 | `web/` | **Live** | Astro 5 SSR app — this is what `discoverdoku.com` actually serves |
 | `web/src/pages/*.astro` | Live | Real routes: `/`, `/collection`, `/item/[sku]`, `/cart`, `/checkout`, `/confirmation`, `/archive`, `/provenance`, `/inquire`, `/privacy` |
 | `web/public/admin.html` | **Live** | Authenticated admin page — catalog + orders management. Served as a static asset by `doku-web`, not part of Astro's routing |
-| `web/src/lib/auth.ts`, `web/src/pages/{login,account}.astro`, `.../api/auth/*`, `.../auth/callback.ts`, `.../api/account/address.ts` | **Live (Session 14)** | Passwordless customer accounts — magic-link sign-in (httpOnly cookie session), order history, saved address |
+| `web/src/lib/auth.ts`, `web/src/pages/{login,account}.astro`, `.../api/auth/*`, `.../auth/callback.ts`, `.../api/account/{address,wishlist,delete}.ts` | **Live (Session 14/16)** | Passwordless customer accounts — magic-link sign-in (httpOnly cookie session), order history + fulfillment status, saved address, wishlist/waitlist, self-service deletion |
+| `supabase/migrations/20260715_wishlist_order_status.sql` | **Applied live 2026-07-15** | `wishlists` (owner-only RLS), `orders.order_status`/`tracking_note`, "Admins update orders" policy. Mirrored in `schema.sql` under "WISHLIST + ORDER STATUS" |
+| `supabase/functions/delete-account/` | **Live, CORS locked** | Service-role Edge Function for self-service account deletion; identifies caller by their own JWT; cascades address + wishlist, keeps orders |
 | `web/wrangler.jsonc` | Live config | `account_id` pinned (domain lives under a different Cloudflare account than the operator's default), `routes: custom_domain:true` for `discoverdoku.com` |
 | `web/public/.assetsignore` | Live | Excludes `_worker.js` (server code) from being served as a public static file |
 | `CART_SECRET` | Live Cloudflare secret | Set via `wrangler secret put`, not baked into the build |
@@ -462,7 +505,7 @@ remains.
 - [~] **Real payment processor** — **Razorpay (domestic INR) live on `discoverdoku.com`** (Session 13 cutover): two Edge Functions + `place_order_paid()`, CORS locked, old free `place_order` revoked from `anon`. Only remaining: PAN/KYC completion, then swap `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to live values — real customer cards fail until then.
 - [x] **Astro migration + cutover** — `discoverdoku.com` moved from the single-file HTML SPA to Astro 5 SSR on Cloudflare Workers (Session 13, 2026-07-12). See Session 13 above for the full sequence.
 - [x] **Migration cleanup** — dead pre-migration files deleted from the repo (Session 14), and the old root `doku` Cloudflare Worker deleted from the dashboard (2026-07-15). Fully done, nothing outstanding.
-- [~] **Customer accounts** — passwordless magic-link sign-in, order history, saved address, built Session 14 (guest checkout unchanged). Code complete; DB migration `20260712_customer_accounts.sql` **applied live 2026-07-15**, and the ops steps for link delivery are done (`/auth/callback` redirect URLs allow-listed in Supabase + custom SMTP configured, 2026-07-15) — magic links now deliver. Not built: wishlist/holds, order-status beyond "reserved", self-service account deletion.
+- [x] **Customer accounts** — passwordless magic-link sign-in, order history + fulfillment status, saved address, wishlist/waitlist, and self-service deletion (guest checkout unchanged). DB migrations `20260712_customer_accounts.sql` + `20260715_wishlist_order_status.sql` **applied live**; magic-link delivery works (SMTP + redirect URLs, 2026-07-15). Deliberately NOT built: a functional off-market "hold" (conflicts with one-of-one + "reserved = paid"). Order status stops at `delivered` (no returns flow yet).
 - [x] **Region → currency bar** — live on `discoverdoku.com` (Session 12): region select on entry → currency, USD fallback, no storage.
 - [ ] **Promote-to-claimed workflow** — currently a manual Supabase dashboard edit (flip `reserved`→`claimed`, write a real epitaph). Fine at low volume; worth a small admin action if volume grows.
 - [x] **Admin UI** — Built in Session 9 as a separate authenticated page (`admin.html`). Catalog CRUD, reserved→claimed promotion with epitaph, and order viewing all done there now.

@@ -186,3 +186,41 @@ create policy "Owner inserts own address" on customer_addresses
   for insert to authenticated with check (auth.uid() = id);
 create policy "Owner updates own address" on customer_addresses
   for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+
+-- ── WISHLIST + ORDER STATUS (public site) ───────────────────────────
+-- Wishlist: a private "keep an eye on this" list per account. It is NOT a hold
+-- — an item on a wishlist stays purchasable by anyone; only a paid Razorpay
+-- order reserves a one-of-one piece. Owner-only via RLS, and it cascades when
+-- the account is deleted (FK auth.users on delete cascade), so self-service
+-- account deletion needs no bespoke cleanup. Items already reserved/claimed use
+-- a Web3Forms "notify me if it frees up" waitlist instead (no DB row).
+create table if not exists wishlists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  sku text not null references products(sku) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (user_id, sku)
+);
+alter table wishlists enable row level security;
+
+create policy "Owner reads own wishlist" on wishlists
+  for select to authenticated using (auth.uid() = user_id);
+create policy "Owner adds to own wishlist" on wishlists
+  for insert to authenticated with check (auth.uid() = user_id);
+create policy "Owner removes from own wishlist" on wishlists
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- Order fulfillment status, shown to the buyer on /account and advanced by
+-- admins. reserved (paid, awaiting our confirmation) → confirmed → shipped
+-- (tracking_note surfaced here) → delivered. All rows of one order_code share
+-- the value. Default 'reserved' matches every order place_order_paid writes.
+alter table orders add column if not exists order_status text not null default 'reserved';
+alter table orders drop constraint if exists orders_order_status_check;
+alter table orders add constraint orders_order_status_check
+  check (order_status in ('reserved','confirmed','shipped','delivered'));
+alter table orders add column if not exists tracking_note text;
+
+-- Admins advance order status/tracking; buyers stay read-only (the "Buyers read
+-- own orders by email" select policy). anon still has no orders policy → denied.
+create policy "Admins update orders" on orders
+  for update to authenticated using (is_admin()) with check (is_admin());

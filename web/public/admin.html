@@ -155,6 +155,7 @@ const SUPABASE_URL = 'https://mudyipmizlvihcldzrvh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im11ZHlpcG1pemx2aWhjbGR6cnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTA3NjEsImV4cCI6MjA5ODY2Njc2MX0.HXiBras1oUQfYuRnjSt3gde8Y5Jl0kSECnGfkd68f2Y';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const STATUSES = ['available','reserved','claimed','coming-soon'];
+const ORDER_STATUSES = ['reserved','confirmed','shipped','delivered'];
 
 const $ = s => document.querySelector(s);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -334,15 +335,34 @@ async function loadOrders(){
   box.innerHTML = Object.entries(groups).map(([code,rows])=>{
     const o=rows[0];
     const items=rows.map(r=>`${esc(r.title)} — ${r.currency} ${r.price}`).join(' · ');
-    return `<div class="order-card">
+    return `<div class="order-card" data-code="${esc(code)}">
       <div class="order-code">${esc(code)}</div>
       <div class="order-meta"><strong>${esc(o.full_name)}</strong> — ${esc(o.email)}</div>
       <div class="order-meta">${esc(o.address)}, ${esc(o.city)} ${esc(o.postcode)}, ${esc(o.country)}</div>
       <div class="order-meta">${items}</div>
       <div class="order-meta muted" style="font-size:11px;">${new Date(o.created_at).toLocaleString()}</div>
+      <div class="grid2" style="margin-top:12px;">
+        <div class="field"><label>Fulfillment status (buyer sees this)</label><select data-f="order_status">${ORDER_STATUSES.map(s=>`<option ${s===(o.order_status||'reserved')?'selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="field"><label>Tracking note (shown to buyer once shipped)</label><input data-f="tracking_note" value="${esc(o.tracking_note)}"></div>
+      </div>
+      <div class="row-actions"><button data-act="save-status">Save status</button><span class="row-msg"></span></div>
     </div>`;
   }).join('');
 }
+
+$('#orders').addEventListener('click', async e => {
+  const btn=e.target.closest('button'); if(!btn||btn.dataset.act!=='save-status') return;
+  const card=e.target.closest('.order-card'); const code=card.dataset.code; const msg=card.querySelector('.row-msg');
+  const status=card.querySelector('[data-f="order_status"]').value;
+  const note=card.querySelector('[data-f="tracking_note"]').value.trim()||null;
+  btn.disabled=true; msg.className='row-msg'; msg.textContent='Saving…';
+  // Updates every row sharing this order_code (one row per item). Allowed by the
+  // "Admins update orders" RLS policy — anon/buyers can't reach this.
+  const { error } = await sb.from('orders').update({ order_status:status, tracking_note:note }).eq('order_code',code);
+  btn.disabled=false;
+  if(error){ msg.className='row-msg err'; msg.textContent=error.message; }
+  else { msg.className='row-msg ok'; msg.textContent='Status saved.'; toast('Order '+code+' → '+status); }
+});
 
 /* ---- ACCOUNT ---- */
 $('#change-pass').addEventListener('click', async ()=>{

@@ -22,9 +22,17 @@ const held = new Set(await decodeCart(cartValue, serverEnv(Astro.locals, 'CART_S
 
 const MARQUEE_WORDS = ['ONE OF ONE', 'NOT REPRODUCED', 'FOUND ONCE', 'NEVER RESTOCKED', 'HELD ONCE', 'THEN GONE'];
 const marquee = [...MARQUEE_WORDS, ...MARQUEE_WORDS];
+
+// Shown once after self-service account deletion (/api/account/delete lands here).
+const farewell = Astro.url.searchParams.get('farewell') === '1';
 ---
 
 <Base>
+  {farewell && (
+    <div role="status" style="border-bottom:1px solid var(--gold); background:var(--bg-card); color:var(--ivory); text-align:center; padding:12px 18px; font-size:.92rem; letter-spacing:.02em;">
+      Your account is closed — what you bought remains yours.
+    </div>
+  )}
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-brand">DOKU</div>

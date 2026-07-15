@@ -1,15 +1,16 @@
 ---
 import Base from '../layouts/Base.astro';
 
-// Protected. The whole point of an account is these two reads, both scoped by
-// RLS to the signed-in user: their past orders (matched on verified JWT email)
-// and their one saved shipping address (matched on auth.uid()). Guests never
-// reach here — bounce to sign-in.
+// Protected. The point of an account is a few RLS-scoped reads, all pinned to
+// the signed-in user: their past orders (matched on verified JWT email), their
+// one saved shipping address (auth.uid()), and their wishlist (auth.uid()).
+// Guests never reach here — bounce to sign-in.
 const { user, supabase } = Astro.locals;
 if (!user) return Astro.redirect('/login');
 
 const saved = Astro.url.searchParams.get('saved') === '1';
 const addrError = Astro.url.searchParams.get('error') === 'address';
+const deleteError = Astro.url.searchParams.get('error') === 'delete';
 
 // Saved address (own row only — RLS). maybeSingle: no row yet is fine.
 const { data: address } = await supabase
@@ -17,28 +18,50 @@ const { data: address } = await supabase
   .select('full_name, address, city, postcode, country')
   .maybeSingle();
 
+// Wishlist: own rows only (RLS), newest first, joined to the live product so we
+// can show each item's current status. A wishlist never reserves anything — the
+// piece may have been claimed by someone else since it was saved.
+const { data: watchRows } = await supabase
+  .from('wishlists')
+  .select('sku, created_at, products(title, status)')
+  .order('created_at', { ascending: false });
+interface Watch { sku: string; title: string; status: string; }
+const watching: Watch[] = (watchRows ?? []).map((r: any) => ({
+  sku: r.sku,
+  title: r.products?.title ?? r.sku,
+  status: r.products?.status ?? 'available',
+}));
+const STATUS_WORD: Record<string, string> = {
+  available: 'Available', 'coming-soon': 'Coming soon', reserved: 'Held', claimed: 'Claimed',
+};
+
 // Orders: one row per item, grouped here under their shared order_code. RLS
 // returns only rows whose email matches this user's verified email — including
 // anything they bought as a guest with the same address. `amount_inr` is the
-// real Razorpay charge in paise (the same value on every row of an order), so
-// that — not the per-row USD `price` mislabelled 'INR' — is the honest total.
+// real Razorpay charge in paise (same on every row of an order), so that — not
+// the per-row USD `price` mislabelled 'INR' — is the honest total. order_status
+// / tracking_note are also shared across an order's rows.
 const { data: rows } = await supabase
   .from('orders')
-  .select('order_code, title, amount_inr, created_at')
+  .select('order_code, title, amount_inr, created_at, order_status, tracking_note')
   .order('created_at', { ascending: false });
 
-interface Order { code: string; date: string; items: string[]; amountInr: number | null; }
+interface Order { code: string; date: string; items: string[]; amountInr: number | null; status: string; trackingNote: string | null; }
 const orders: Order[] = [];
 const byCode = new Map<string, Order>();
 for (const r of rows ?? []) {
   let o = byCode.get(r.order_code);
   if (!o) {
-    o = { code: r.order_code, date: r.created_at, items: [], amountInr: r.amount_inr ?? null };
+    o = { code: r.order_code, date: r.created_at, items: [], amountInr: r.amount_inr ?? null, status: r.order_status ?? 'reserved', trackingNote: r.tracking_note ?? null };
     byCode.set(r.order_code, o);
     orders.push(o);
   }
   o.items.push(r.title);
 }
+
+const STAGES = ['reserved', 'confirmed', 'shipped', 'delivered'] as const;
+const STAGE_LABEL: Record<string, string> = { reserved: 'Reserved', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered' };
+const stageIndex = (s: string) => { const i = (STAGES as readonly string[]).indexOf(s); return i < 0 ? 0 : i; };
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const money = (paise: number | null) => (paise == null ? '—' : inr.format(paise / 100));
@@ -50,7 +73,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'n
     <div class="page-head">
       <div class="eyebrow">{user.email}</div>
       <h1 class="serif">Your account</h1>
-      <p>Two things live here: what you've claimed, and where it ships.</p>
+      <p>What you're watching, what you've claimed, and where it ships.</p>
     </div>
 
     <section class="account-block">
@@ -71,6 +94,31 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'n
     </section>
 
     <section class="account-block">
+      <h2 class="serif account-h2">Watching</h2>
+      <p class="fine-print" style="margin-top:-4px;">A list, not a hold. Watching a piece doesn't take it off the market.</p>
+      {watching.length === 0 ? (
+        <p class="fine-print" style="margin-top:10px;">Nothing yet. On any piece, <em>Keep an eye on this</em> saves it here.</p>
+      ) : (
+        <div class="watch-list">
+          {watching.map((w) => (
+            <div class="watch-row">
+              <div class="watch-main">
+                <a class="watch-title serif" href={`/item/${w.sku}`}>{w.title}</a>
+                <span class:list={['watch-status', { gone: w.status === 'claimed' || w.status === 'reserved' }]}>{STATUS_WORD[w.status] ?? w.status}</span>
+              </div>
+              <form method="POST" action="/api/account/wishlist">
+                <input type="hidden" name="action" value="remove" />
+                <input type="hidden" name="sku" value={w.sku} />
+                <input type="hidden" name="redirect" value="/account" />
+                <button class="btn-text" type="submit">Remove</button>
+              </form>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section class="account-block">
       <h2 class="serif account-h2">Order history</h2>
       {orders.length === 0 ? (
         <p class="fine-print">Nothing yet. <a href="/collection">The collection</a> is where it starts.</p>
@@ -84,11 +132,41 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'n
               </div>
               <div class="order-items">{o.items.join(' · ')}</div>
               <div class="order-amount serif">{money(o.amountInr)}</div>
+              <ol class="stepper" aria-label="Order status">
+                {STAGES.map((s, i) => (
+                  <li class:list={['step', { done: i <= stageIndex(o.status), current: i === stageIndex(o.status) }]}>
+                    <span class="dot"></span>
+                    <span class="step-label">{STAGE_LABEL[s]}</span>
+                  </li>
+                ))}
+              </ol>
+              {(o.status === 'shipped' || o.status === 'delivered') && o.trackingNote && (
+                <div class="tracking-note">{o.trackingNote}</div>
+              )}
             </div>
           ))}
         </div>
       )}
-      <p class="fine-print" style="margin-top:14px;">Amounts show what Razorpay charged, in INR. Reserved items become yours once we've fulfilled them.</p>
+      <p class="fine-print" style="margin-top:14px;">Amounts show what Razorpay charged, in INR. A reserved piece becomes yours once we've confirmed and shipped it.</p>
+    </section>
+
+    <section class="account-block">
+      <details class="danger-zone">
+        <summary>Close account</summary>
+        {deleteError && <div class="claim-sub" style="color:var(--gold);margin:10px 0;">Something went wrong — nothing was deleted. Try again.</div>}
+        <p class="fine-print" style="margin-top:10px;">
+          This removes your sign-in and your saved address for good. Your order
+          records stay with us as receipts — they're how we honour what you've
+          bought. This can't be undone.
+        </p>
+        <form method="POST" action="/api/account/delete">
+          <label class="confirm-line">
+            <input type="checkbox" name="confirm" value="delete" required />
+            <span>I understand my account and saved address will be permanently deleted.</span>
+          </label>
+          <button class="btn-danger" type="submit">Delete my account</button>
+        </form>
+      </details>
     </section>
 
     <section class="account-block">
@@ -103,20 +181,69 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'n
   .account-block { padding: 28px 0; border-top: 1px solid var(--hairline); }
   .account-block:first-of-type { border-top: none; }
   .account-h2 { font-size: 1.25rem; margin-bottom: 6px; color: var(--ivory); }
+
+  .watch-list { display: flex; flex-direction: column; margin-top: 14px; }
+  .watch-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    padding: 14px 0; border-bottom: 1px solid var(--hairline);
+  }
+  .watch-main { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .watch-title { color: var(--ivory); font-size: 1.02rem; text-decoration: none; }
+  .watch-title:hover { color: var(--gold); }
+  .watch-status { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+  .watch-status.gone { color: var(--claimed); }
+
   .order-list { display: flex; flex-direction: column; }
   .order-row {
     display: grid; grid-template-columns: 1fr auto; gap: 4px 16px;
-    align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--hairline);
+    align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--hairline);
   }
   .order-meta { display: flex; gap: 12px; align-items: baseline; }
   .order-code { color: var(--ivory); font-size: 1rem; letter-spacing: .02em; }
   .order-date { color: var(--claimed); font-size: .82rem; }
   .order-items { grid-column: 1; color: var(--ivory); opacity: .82; font-size: .92rem; }
   .order-amount { grid-column: 2; grid-row: 1 / span 2; color: var(--gold); align-self: center; white-space: nowrap; }
+
+  .stepper {
+    grid-column: 1 / -1; list-style: none; display: flex; gap: 0; margin: 12px 0 0;
+    padding: 0; counter-reset: none;
+  }
+  .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
+  .step + .step::before {
+    content: ''; position: absolute; top: 4px; left: -50%; width: 100%; height: 1px;
+    background: var(--hairline);
+  }
+  .step.done + .step.done::before, .step.done.current::before { background: var(--gold); }
+  .step .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--bg-card);
+    border: 1px solid var(--hairline); position: relative; z-index: 1;
+  }
+  .step.done .dot { background: var(--gold); border-color: var(--gold); }
+  .step.current .dot { box-shadow: 0 0 0 3px rgba(176, 141, 87, .22); }
+  .step-label { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--claimed); }
+  .step.done .step-label { color: var(--ivory); }
+  .step.current .step-label { color: var(--gold); }
+  .tracking-note { grid-column: 1 / -1; margin-top: 10px; font-size: .85rem; color: var(--ivory); opacity: .82; }
+
+  .danger-zone summary {
+    cursor: pointer; color: var(--claimed); font-size: .95rem; list-style: revert;
+    transition: color .3s cubic-bezier(.16, 1, .3, 1);
+  }
+  .danger-zone summary:hover { color: var(--ivory); }
+  .danger-zone[open] summary { color: var(--ivory); margin-bottom: 4px; }
+  .confirm-line { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; font-size: .88rem; color: var(--ivory); opacity: .9; }
+  .confirm-line input { margin-top: 3px; accent-color: var(--gold); }
+  .btn-danger {
+    background: none; border: 1px solid var(--hairline); color: var(--claimed);
+    font: inherit; font-size: .88rem; padding: 9px 16px; cursor: pointer;
+    transition: border-color .3s cubic-bezier(.16, 1, .3, 1), color .3s cubic-bezier(.16, 1, .3, 1);
+  }
+  .btn-danger:hover { border-color: var(--claimed); color: var(--ivory); }
+
   .btn-text {
     background: none; border: none; color: var(--claimed); cursor: pointer;
     font: inherit; font-size: .9rem; padding: 0; text-decoration: underline;
-    text-underline-offset: 3px; transition: color .3s cubic-bezier(.16,1,.3,1);
+    text-underline-offset: 3px; transition: color .3s cubic-bezier(.16, 1, .3, 1);
   }
   .btn-text:hover { color: var(--ivory); }
 </style>

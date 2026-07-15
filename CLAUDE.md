@@ -170,9 +170,10 @@ explicitly and chose to go live anyway.
 ## Customer accounts (public site) — optional, passwordless
 Shoppers can **optionally** sign in with a **magic link** (Supabase Auth,
 passwordless). Accounts are pure convenience — **guest checkout is unchanged
-and still the default**; nothing about buying requires an account. Two
-capabilities only: **see your own past orders**, and **save one shipping
-address** that prefills checkout.
+and still the default**; nothing about buying requires an account. What an
+account adds: **see your own past orders** (with fulfillment status), **save one
+shipping address** that prefills checkout, and **keep a wishlist** of pieces
+you're watching. Accounts are also self-service **deletable**.
 - **Session storage:** unlike `admin.html` (Supabase's default `localStorage`,
   allowed there because it's a separate non-public page), the public-site
   session lives in **httpOnly cookies** via `@supabase/ssr`
@@ -205,8 +206,30 @@ address** that prefills checkout.
   (2) **custom SMTP** is configured (Supabase's built-in auth email was heavily
   rate-limited and test-grade). Magic links now deliver — the flow is fully live,
   no longer gated on an ops step.
-- Schema (`customer_addresses`, the orders own-email read policy) is in
-  `supabase/schema.sql` under "CUSTOMER ACCOUNTS".
+- **Wishlist (not a hold):** `wishlists` table, one row per `(user_id, sku)`,
+  RLS owner-only (`auth.uid() = user_id`), cascades on account deletion. A
+  wishlist **never** changes a product's status — the piece stays purchasable by
+  anyone; only a paid Razorpay order reserves a one-of-one. Toggled from the item
+  page (signed-in) via `/api/account/wishlist`; shown under "Watching" on
+  `/account`. Items already reserved/claimed instead offer a **Web3Forms
+  "notify me if it frees up" waitlist** (email only, no DB row) — same transport
+  as "Notify me". Guests see a "Sign in to keep a list" prompt.
+- **Order status:** `orders.order_status` (`reserved` → `confirmed` → `shipped`
+  → `delivered`, default `reserved`) + `orders.tracking_note`, shared across all
+  rows of an `order_code`. Admins advance it from `admin.html` (Orders panel;
+  "Admins update orders" RLS policy); the buyer sees a 4-step indicator + the
+  tracking note (once shipped) on `/account`. Buyers stay read-only. This is the
+  customer-visible layer over the manual `reserved`→`claimed` product promotion.
+- **Self-service deletion:** `/account` → `/api/account/delete` (requires an
+  explicit confirm) → the **`delete-account` Edge Function** (service-role, the
+  only way to delete an auth user; CORS locked to `discoverdoku.com`, identifies
+  the caller from their own JWT). Deleting the auth user cascades their saved
+  address + wishlist. **Order rows are KEPT** as the sale/receipt record (orders
+  don't reference `auth.users`, so nothing orphans) — owner's decision. On
+  success the session is cleared and the shopper lands on `/?farewell=1`.
+- Schema (`customer_addresses`, `wishlists`, the orders own-email read policy +
+  `order_status`/`tracking_note` + admin update policy) is in
+  `supabase/schema.sql` under "CUSTOMER ACCOUNTS" and "WISHLIST + ORDER STATUS".
 
 ## Admin — `web/public/admin.html`
 A **separate, standalone page** (not part of the Astro app's routes, not
@@ -280,12 +303,14 @@ served) and is cleanup debt; edit `web/public/admin.html` only.
   until that clears and `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are swapped
   to live values. Domestic INR only even then — international cards need
   separate Razorpay activation.
-- **Customer accounts are fully live.** The passwordless account flow (login /
-  order history / saved address) is built, and magic-link delivery is now
-  working — custom SMTP is configured and the callback redirect URL is
-  allow-listed in Supabase (both done 2026-07-15; see "Customer accounts").
-  Guest checkout remains the default and is unaffected. Not yet built:
-  wishlist/holds, order-status beyond "reserved", account deletion self-service.
+- **Customer accounts are fully live.** The passwordless account flow (login,
+  order history + fulfillment status, saved address, wishlist/waitlist, and
+  self-service deletion) is built; magic-link delivery works (custom SMTP + the
+  allow-listed callback redirect URL, done 2026-07-15). Guest checkout remains
+  the default and is unaffected. See "Customer accounts". Still not built: a
+  functional off-market "hold" (deliberately — conflicts with the one-of-one +
+  "reserved = paid" model), and order status stops at `delivered` (no returns
+  flow).
 - No domain email yet — `enquiry@` / `admin@discoverdoku.com` mailboxes
   (Google Workspace) are planned but not set up, so `admin@` password-reset
   emails can't be delivered (rotate the password in-app instead).

@@ -41,6 +41,21 @@ const related = allProducts.filter((x) => x.status === 'available' && x.sku !== 
 
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);
 const rates = await fetchRates();
+
+// Wishlist ("keep an eye on this") is offered on buyable/upcoming items;
+// reserved/claimed items instead offer a Web3Forms "notify me if it frees up"
+// waitlist. A signed-in shopper's wishlist state for THIS sku is one RLS-scoped
+// read (the policy pins it to auth.uid()); guests are prompted to sign in.
+const isClaimed = !isAvailable && !isComingSoon && !isReserved;
+const canWishlist = isAvailable || isComingSoon;
+const canWaitlist = isReserved || isClaimed;
+const signedIn = !!Astro.locals.user;
+let isWishlisted = false;
+if (signedIn && canWishlist) {
+  const { data } = await Astro.locals.supabase
+    .from('wishlists').select('sku').eq('sku', p.sku).maybeSingle();
+  isWishlisted = !!data;
+}
 ---
 
 <Base title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
@@ -120,6 +135,42 @@ const rates = await fetchRates();
           <button class="btn-ghost" disabled>This DOKU is gone</button>
           <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
         </>
+      )}
+
+      {canWishlist && (
+        <div class="wishlist-row">
+          {signedIn ? (
+            <form id="wishlist-form" method="POST" action="/api/account/wishlist" data-watching={isWishlisted ? '1' : '0'}>
+              <input type="hidden" name="action" value={isWishlisted ? 'remove' : 'add'} />
+              <input type="hidden" name="sku" value={p.sku} />
+              <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
+              <button class="btn-wishlist" type="submit" id="wishlist-btn">
+                <span id="wishlist-label">{isWishlisted ? 'Watching — remove' : 'Keep an eye on this'}</span>
+              </button>
+            </form>
+          ) : (
+            <a class="btn-wishlist" href="/login">Sign in to keep a list</a>
+          )}
+        </div>
+      )}
+
+      {canWaitlist && (
+        <div class="waitlist-block">
+          <form id="waitlist-form" novalidate>
+            <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
+            <input type="hidden" name="subject" value={`DOKU — Waitlist: ${p.title}`} />
+            <input type="hidden" name="from_name" value="DOKU Waitlist Form" />
+            <input type="hidden" name="sku" value={p.sku} />
+            <input type="hidden" name="item" value={p.title} />
+            <div class="form-group">
+              <label for="waitlist-email">Notify me if it frees up</label>
+              <input id="waitlist-email" name="email" type="email" required placeholder="you@email.com" />
+            </div>
+            <p class="fine-print">Rare, but it happens. Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
+            <button class="btn-ghost" type="submit"><span>Join the waitlist</span></button>
+          </form>
+          <div id="waitlist-result" class="claim-sub" style="margin-top:14px;"></div>
+        </div>
       )}
 
       {p.story && p.story.length > 0 && (
@@ -217,4 +268,64 @@ const rates = await fetchRates();
       if (result) result.textContent = 'Something went wrong — try again shortly.';
     }
   });
+
+  // Wishlist toggle → /api/account/wishlist. With JS we flip the label + the
+  // form's action in place; without JS the server 303-redirects back here.
+  const wishlistForm = document.getElementById('wishlist-form') as HTMLFormElement | null;
+  wishlistForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const actionInput = wishlistForm.querySelector('input[name="action"]') as HTMLInputElement | null;
+    const label = document.getElementById('wishlist-label');
+    try {
+      const res = await fetch('/api/account/wishlist', {
+        method: 'POST',
+        headers: { accept: 'application/json' },
+        body: new FormData(wishlistForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const watching = !!data.watching;
+        if (actionInput) actionInput.value = watching ? 'remove' : 'add';
+        if (label) label.textContent = watching ? 'Watching — remove' : 'Keep an eye on this';
+        wishlistForm.dataset.watching = watching ? '1' : '0';
+      } else if (res.status === 401) {
+        window.location.href = '/login';
+      }
+    } catch {
+      wishlistForm.submit();
+    }
+  });
+
+  // Waitlist for reserved/claimed items → Web3Forms, same transport as notify.
+  const waitlistForm = document.getElementById('waitlist-form') as HTMLFormElement | null;
+  waitlistForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('waitlist-result');
+    if (!waitlistForm.checkValidity()) { waitlistForm.reportValidity(); return; }
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        body: new FormData(waitlistForm),
+      });
+      const data = await res.json();
+      if (result) result.textContent = data.success
+        ? "You're on the list. If it comes back, you'll hear first."
+        : 'Something went wrong — try again shortly.';
+      if (data.success) waitlistForm.reset();
+    } catch {
+      if (result) result.textContent = 'Something went wrong — try again shortly.';
+    }
+  });
 </script>
+
+<style>
+  .wishlist-row { margin-top: 14px; }
+  .btn-wishlist {
+    display: inline-block; background: none; border: none; padding: 0; cursor: pointer;
+    font: inherit; font-size: .9rem; letter-spacing: .02em; color: var(--claimed);
+    text-decoration: underline; text-underline-offset: 3px;
+    transition: color .3s cubic-bezier(.16, 1, .3, 1);
+  }
+  .btn-wishlist:hover { color: var(--gold); }
+  .waitlist-block { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--hairline); }
+</style>
