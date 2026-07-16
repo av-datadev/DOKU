@@ -20,6 +20,33 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 
+// Fire-and-forget Sentry capture (dependency-free envelope POST). Never throws.
+// Called only when Razorpay refuses to create an order — i.e. checkout can't
+// even begin — not for expected 4xx like an item already being taken.
+async function sentry(err: unknown, extra: Record<string, unknown> = {}) {
+  try {
+    const dsn = Deno.env.get("SENTRY_DSN") ??
+      "https://c9e59ba11261521cfb64b18666157efb@o4511745144061952.ingest.de.sentry.io/4511745519779920";
+    const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(.+)$/);
+    if (!m) return;
+    const [, key, host, project] = m;
+    const eid = crypto.randomUUID().replace(/-/g, "");
+    const now = new Date().toISOString();
+    const isErr = err instanceof Error;
+    const event = {
+      event_id: eid, timestamp: now, platform: "javascript", level: "error",
+      server_name: "razorpay-create-order", environment: "production",
+      tags: { fn: "razorpay-create-order" },
+      extra: { ...extra, ...(isErr && err.stack ? { stack: err.stack } : {}) },
+      exception: { values: [{ type: isErr ? err.name : "Error", value: isErr ? err.message : String(err) }] },
+    };
+    await fetch(`https://${host}/api/${project}/envelope/?sentry_key=${key}&sentry_version=7`, {
+      method: "POST", headers: { "Content-Type": "application/x-sentry-envelope" },
+      body: `${JSON.stringify({ event_id: eid, sent_at: now })}\n${JSON.stringify({ type: "event" })}\n${JSON.stringify(event)}\n`,
+    });
+  } catch { /* monitoring must never break the request */ }
+}
+
 async function usdToInrRate(): Promise<number> {
   try {
     const r = await fetch("https://api.frankfurter.app/latest?from=USD&to=INR", {
@@ -92,6 +119,9 @@ Deno.serve(async (req) => {
   });
   const order = await rp.json();
   if (!rp.ok || !order?.id) {
+    await sentry(new Error("Razorpay order creation failed"), {
+      skus, amountPaise, status: rp.status, detail: order?.error?.description,
+    });
     return json({ error: "Could not create order", detail: order?.error?.description }, 502);
   }
 

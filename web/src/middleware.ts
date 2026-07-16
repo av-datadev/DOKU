@@ -1,5 +1,6 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getUser } from './lib/auth';
+import { captureError } from './lib/sentry';
 
 // Every page is SSR (astro.config output:'server'). This runs once per request
 // and does two things:
@@ -22,7 +23,26 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.supabase = client;
   context.locals.user = user;
 
-  const response = await next();
+  // Wrap the request so any unhandled SSR fault reaches Sentry (→ email alert).
+  // captureError is fire-and-forget and never throws, so this can't change
+  // behaviour — a thrown error is still re-thrown to Astro's own 500 handling.
+  // We also flag any 5xx the route returned without throwing. Expected 4xx
+  // (validation, auth) are deliberately NOT captured — they'd be noise and burn
+  // the free-tier event quota.
+  let response: Response;
+  try {
+    response = await next();
+  } catch (err) {
+    await captureError(err, { locals: context.locals, request: context.request, tags: { where: 'ssr-throw' } });
+    throw err;
+  }
+  if (response.status >= 500) {
+    await captureError(new Error(`SSR responded ${response.status}`), {
+      locals: context.locals, request: context.request,
+      tags: { where: 'ssr-5xx', status: String(response.status) },
+    });
+  }
+
   const type = response.headers.get('content-type') || '';
   if (type.includes('text/html')) {
     response.headers.set('Cache-Control', 'no-cache');

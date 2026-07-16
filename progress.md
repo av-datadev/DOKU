@@ -499,6 +499,116 @@ request — but gated OFF until its infrastructure exists, so nothing broken shi
 
 ---
 
+## Session 19 — 2026-07-16 — Refunds, Sentry monitoring, R2 bucket + a live vuln
+Marketplace-architecture review against a generic multi-vendor diagram, then
+turned the identified gaps into work. Prioritised P0/P1/P2 (see chat), and:
+
+### Refunds (P1 — mechanism built, deployed)
+- **`supabase/migrations/20260716_refunds.sql`** — adds `refund_id`,
+  `refunded_amount_inr`, `refunded_at` to `orders`; extends `order_status` to
+  allow `'refunded'`. **Applied live** (migration `refunds`).
+- **`supabase/functions/razorpay-refund/`** — admin-gated Edge Function
+  (verifies caller JWT → re-checks `is_admin()` → Razorpay refund API →
+  records the result). Idempotent (refuses to re-refund an order with a
+  `refund_id`). Full refunds only (one one-of-one piece per order).
+  **Deployed live** (`verify_jwt:true` — first push mistakenly had it `false`,
+  caught + redeployed).
+- **`web/public/admin.html`** — a **Refund** button per order card (only when a
+  Razorpay payment is on file), behind a confirm, calling the function with the
+  admin's own session. **`web/src/pages/account.astro`** — a refunded order
+  shows "Refunded — the charge was reversed" instead of the step tracker. UI is
+  code, live on next Worker deploy.
+- Deliberately: `'refunded'` is reachable ONLY via the button (a real Razorpay
+  refund), never the plain status dropdown — the column can't imply money moved
+  that didn't (Hard rule 4 spirit). Returns *policy* still undecided.
+
+### 🔴 Live vulnerability found (P0 — NOT yet fixed)
+- While reviewing Supabase security advisories after the refund migration:
+  `place_order_paid()` and the old `place_order()` are **directly executable by
+  `anon`/`authenticated`** via PostgREST, despite `revoke ... from public` in
+  their migrations. Root cause: Supabase grants EXECUTE directly to those roles
+  on function creation; revoking from the `PUBLIC` pseudo-role never removed
+  those direct grants. Confirmed via `has_function_privilege()` (all true).
+- **Impact:** anyone can `POST /rest/v1/rpc/place_order_paid` with fabricated
+  Razorpay ids and reserve a one-of-one **for free** — bypasses payment,
+  breaks Hard rule 4's core guarantee. Open since the 2026-07-12 cutover.
+- **FIXED** (migration `fix_place_order_paid_privilege_leak`, applied live on
+  owner go-ahead): `revoke all ... from anon, authenticated` on both functions,
+  re-grant `place_order_paid` to `service_role`. Verified via
+  `has_function_privilege()` — `anon`/`authenticated` now false on both, only
+  `service_role` (which the verify-payment Edge Function uses) can execute.
+
+### Sentry monitoring (P0-adjacent — built, edge deploys pending)
+- Dependency-free error capture (envelope POST over `fetch`, no SDK):
+  `web/src/lib/sentry.ts` + `web/src/middleware.ts` wrap on the SSR side;
+  inline `sentry()` helpers in `razorpay-verify-payment`, `razorpay-refund`,
+  `razorpay-create-order`. DSN in `web/wrangler.jsonc` `vars` (`SENTRY_DSN`) +
+  hardcoded fallback (a DSN is a write-only ingest key, not a secret).
+- Captures money-critical faults only (paid_but_unreserved, refund
+  failures, order-creation failure, SSR 5xx) — expected 4xx excluded to spare
+  the free-tier quota + avoid alert fatigue. Email alerts (Sentry default).
+- **Deploy state:** the three Edge Function redeploys with capture are **live**
+  (`razorpay-create-order` v6, `razorpay-verify-payment` v6, `razorpay-refund`
+  v3, all `verify_jwt:true`, deployed 2026-07-16 on owner go-ahead). The Astro
+  side (middleware wrap + `SENTRY_DSN` var) is code, live on next
+  `wrangler deploy`. `astro build` clean.
+
+### R2 object storage (P1 groundwork)
+- Owner enabled R2 on the Cloudflare account hosting `doku-web`; created bucket
+  **`doku-product-images`** and bound it as `PRODUCT_IMAGES` in
+  `web/wrangler.jsonc`. Nothing reads/writes it yet — upload path + serving
+  route still to build, for when real photography exists.
+
+### Ambient effects restored (owner noticed they were missing on live)
+- Two effects from the old single-file site were **intentionally dropped in the
+  Astro port** (Session 13) — documented in a `hero.css` comment ("custom
+  cursor, scroll parallax, weighted scroll — intentionally left out"). Root
+  cause: the cursor was bundled into the same RAF as a **weighted momentum
+  scroll** that assumed a never-reloading SPA; that scroll-hijack fights real
+  multi-page SSR loads, so the whole bundle was culled to de-risk the cutover —
+  the cursor + glow went along as collateral though they weren't the problem.
+- **Restored, without the momentum scroll:** the drifting **golden glow**
+  (`web/src/styles/ambient.css`, pure CSS, values ported verbatim), the **rising
+  gold "dust" motes** (20 particles, sizes/speeds/columns randomized server-side
+  in `web/src/components/Ambient.astro`, pure-CSS `rise` animation — the owner
+  specifically remembered these; they were the last piece still missing after
+  the first pass restored only the glow), and the **custom trailing cursor**
+  (self-contained mousemove RAF — never touches scrolling). Wired into
+  `Base.astro`; `#app` lifted to `z-index:1` so content sits above the fixed
+  glow + dust. Reduced-motion + touch guards kept.
+- **Verified in the dev preview:** glow renders behind the hero (screenshot),
+  cursor ring tracks the pointer with eased lag, grows to 42px over links and
+  clears on mouse-out, no console errors, `astro build` clean.
+- **Cursor labels + two new scroll reveals** (owner asked for the labels back
+  and picked reveals #1 + #2 from a proposed menu):
+  - **Cursor word-labels restored** — `data-cursor` on the primary CTAs (logo
+    "Home", item card "View"/"Preview", hero "Explore", Hold, Notify, Confirm,
+    Send, Checkout); the ring shows the label over them. Verified: hovering the
+    hero CTA shows "Explore" in the ring.
+  - **#1 Frame wipe** — product vitrine frames unmask left-to-right (clip-path)
+    when scrolled into view. `data-reveal="frame"` on all three Frame variants.
+  - **#2 Hairline draw-on** — a gold rule under each section heading draws in
+    from the centre. `data-reveal="line"` on the section-heads + a
+    `.section-head::after` rule.
+  - Shared `IntersectionObserver` (`Reveal.astro`) toggles `.is-in`; states in
+    `reveal.css`. Progressive-enhanced via a `.js` class set in `<head>` before
+    paint (no FOUC, no-JS shows everything); reduced-motion collapses to final.
+  - Verified: `.js` set, 8 frames + section-heads wired and correctly masked
+    until `.is-in`; with transitions stripped, `.is-in` resolves to the right
+    end-states (frame `inset(0)`, hairline `scaleX(1)`); no console errors;
+    `astro build` clean. (Scroll-triggered motion only animates in a
+    foregrounded tab — the preview pane is backgrounded, which pauses IO +
+    transitions; not a code issue.)
+- All of the above is code — live on next `wrangler deploy`.
+
+### Docs
+- CLAUDE.md: added "Monitoring — Sentry", refund + R2 + the vuln (now FIXED)
+  entries under Known gaps, and the ambient-effects note under Design system.
+  progress.md: this entry. README.md left untouched (it's a logo design brief,
+  not a technical readme). Notion "DOKU" page: added Session 18 + 19.
+
+---
+
 ## Current State
 
 **`discoverdoku.com` is live on Astro (`doku-web` Cloudflare Worker), as of Session 13 (2026-07-12).** The single-file HTML SPA is retired from production.

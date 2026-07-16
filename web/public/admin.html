@@ -345,23 +345,47 @@ async function loadOrders(){
         <div class="field"><label>Fulfillment status (buyer sees this)</label><select data-f="order_status">${ORDER_STATUSES.map(s=>`<option ${s===(o.order_status||'reserved')?'selected':''}>${s}</option>`).join('')}</select></div>
         <div class="field"><label>Tracking note (shown to buyer once shipped)</label><input data-f="tracking_note" value="${esc(o.tracking_note)}"></div>
       </div>
-      <div class="row-actions"><button data-act="save-status">Save status</button><span class="row-msg"></span></div>
+      <div class="row-actions">
+        <button data-act="save-status">Save status</button>
+        ${o.refund_id
+          ? `<span class="row-msg ok">Refunded ${esc(o.refund_id)}</span>`
+          : (o.razorpay_payment_id ? `<button class="danger" data-act="refund">Refund</button>` : '')}
+        <span class="row-msg"></span>
+      </div>
     </div>`;
   }).join('');
 }
 
 $('#orders').addEventListener('click', async e => {
-  const btn=e.target.closest('button'); if(!btn||btn.dataset.act!=='save-status') return;
-  const card=e.target.closest('.order-card'); const code=card.dataset.code; const msg=card.querySelector('.row-msg');
-  const status=card.querySelector('[data-f="order_status"]').value;
-  const note=card.querySelector('[data-f="tracking_note"]').value.trim()||null;
-  btn.disabled=true; msg.className='row-msg'; msg.textContent='Saving…';
-  // Updates every row sharing this order_code (one row per item). Allowed by the
-  // "Admins update orders" RLS policy — anon/buyers can't reach this.
-  const { error } = await sb.from('orders').update({ order_status:status, tracking_note:note }).eq('order_code',code);
-  btn.disabled=false;
-  if(error){ msg.className='row-msg err'; msg.textContent=error.message; }
-  else { msg.className='row-msg ok'; msg.textContent='Status saved.'; toast('Order '+code+' → '+status); }
+  const btn=e.target.closest('button'); if(!btn) return;
+  const card=e.target.closest('.order-card'); const code=card.dataset.code; const msg=card.querySelector('.row-msg:last-child');
+
+  if(btn.dataset.act==='save-status'){
+    const status=card.querySelector('[data-f="order_status"]').value;
+    const note=card.querySelector('[data-f="tracking_note"]').value.trim()||null;
+    btn.disabled=true; msg.className='row-msg'; msg.textContent='Saving…';
+    // Updates every row sharing this order_code (one row per item). Allowed by the
+    // "Admins update orders" RLS policy — anon/buyers can't reach this.
+    const { error } = await sb.from('orders').update({ order_status:status, tracking_note:note }).eq('order_code',code);
+    btn.disabled=false;
+    if(error){ msg.className='row-msg err'; msg.textContent=error.message; }
+    else { msg.className='row-msg ok'; msg.textContent='Status saved.'; toast('Order '+code+' → '+status); }
+    return;
+  }
+
+  if(btn.dataset.act==='refund'){
+    if(!confirm(`Refund order ${code} in full via Razorpay? This cannot be undone.`)) return;
+    btn.disabled=true; msg.className='row-msg'; msg.textContent='Refunding…';
+    // Calls the razorpay-refund Edge Function with the admin's own session —
+    // it re-checks is_admin() server-side and calls Razorpay directly. Never
+    // done as a plain table update: a refund has to actually happen at
+    // Razorpay before we're allowed to say it did.
+    const { data, error } = await sb.functions.invoke('razorpay-refund', { body: { order_code: code } });
+    btn.disabled=false;
+    if(error || data?.error){ msg.className='row-msg err'; msg.textContent=data?.error || error.message; }
+    else { toast('Order '+code+' refunded'); loadOrders(); }
+    return;
+  }
 });
 
 /* ---- ACCOUNT ---- */

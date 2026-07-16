@@ -109,8 +109,15 @@ begin
 end;
 $$;
 
-revoke all on function place_order(text[], text, text, text, text, text, text, text) from public;
-grant execute on function place_order(text[], text, text, text, text, text, text, text) to anon;
+-- place_order (the old free/no-payment reserve path) is fully locked down. Its
+-- anon grant was revoked post-cutover (migration revoke_anon_place_order_post_cutover,
+-- 2026-07-12); the direct anon/authenticated grants Supabase adds on function
+-- creation were then explicitly revoked (migration fix_place_order_paid_privilege_leak,
+-- 2026-07-16) after has_function_privilege() showed they still leaked. Do NOT
+-- re-grant this to anon/authenticated — doing so lets anyone reserve for free,
+-- bypassing Razorpay (breaks Hard rule 4). Razorpay's place_order_paid is
+-- server-only (service_role) and lives in the razorpay_payments migration.
+revoke all on function place_order(text[], text, text, text, text, text, text, text) from public, anon, authenticated;
 
 -- ── ADMIN (admin.html) ──────────────────────────────────────────────
 -- Allowlist of admin user IDs. Write access to the catalog and read access

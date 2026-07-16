@@ -135,14 +135,18 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'n
               </div>
               <div class="order-items">{o.items.join(' · ')}</div>
               <div class="order-amount serif">{money(o.amountInr)}</div>
-              <ol class="stepper" aria-label="Order status">
-                {STAGES.map((s, i) => (
-                  <li class:list={['step', { done: i <= stageIndex(o.status), current: i === stageIndex(o.status) }]}>
-                    <span class="dot"></span>
-                    <span class="step-label">{STAGE_LABEL[s]}</span>
-                  </li>
-                ))}
-              </ol>
+              {o.status === 'refunded' ? (
+                <div class="tracking-note">Refunded — the charge was reversed.</div>
+              ) : (
+                <ol class="stepper" aria-label="Order status">
+                  {STAGES.map((s, i) => (
+                    <li class:list={['step', { done: i <= stageIndex(o.status), current: i === stageIndex(o.status) }]}>
+                      <span class="dot"></span>
+                      <span class="step-label">{STAGE_LABEL[s]}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {(o.status === 'shipped' || o.status === 'delivered') && o.trackingNote && (
                 <div class="tracking-note">{o.trackingNote}</div>
               )}

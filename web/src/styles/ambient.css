@@ -1,0 +1,77 @@
+/* Ambient polish — restored from the single-file site (Session 19).
+   Two effects that were dropped in the Astro port (see hero.css note):
+   the drifting golden background glow and the custom trailing cursor.
+   Deliberately WITHOUT the old weighted/momentum scroll they were bundled
+   with — that scroll-hijack is what actually conflicts with real multi-page
+   SSR loads; the glow (pure CSS) and cursor (a self-contained mousemove RAF,
+   never touches scrolling) do not. Values ported verbatim from the original. */
+
+/* ── Golden ambient glow ── */
+#ambient-glow { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+#ambient-glow .glow { position: absolute; border-radius: 50%; pointer-events: none; }
+#ambient-glow .glow.g1 {
+  width: 52vw; height: 52vw;
+  background: radial-gradient(circle, rgba(176, 141, 87, 0.055), transparent 70%);
+  top: -8%; left: -10%;
+  animation: drift1 64s ease-in-out infinite alternate;
+}
+#ambient-glow .glow.g2 {
+  width: 44vw; height: 44vw;
+  background: radial-gradient(circle, rgba(176, 141, 87, 0.06), transparent 70%);
+  animation: drift2 68s ease-in-out infinite alternate;
+}
+@keyframes drift1 { 0% { top: -12%; left: -8%; } 50% { top: 28%; left: 48%; } 100% { top: 55%; left: 6%; } }
+@keyframes drift2 { 0% { top: 58%; left: 62%; } 50% { top: 12%; left: 22%; } 100% { top: 38%; left: 72%; } }
+
+/* ── Dust motes — tiny gold particles drifting up through the glow ── */
+#dust { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.mote {
+  position: absolute; bottom: -10px; border-radius: 50%; background: var(--gold); opacity: 0;
+  animation-name: rise; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes rise {
+  0% { opacity: 0; transform: translateY(0) translateX(0); }
+  10% { opacity: 0.4; }
+  85% { opacity: 0.18; }
+  100% { opacity: 0; transform: translateY(-110vh) translateX(18px); }
+}
+
+/* Page content sits above the glow + dust (both fixed at z-index 0); without
+   this, in-flow content would paint under them. Header/bars carry their own
+   higher z-index already, so only the main column needs lifting. */
+#app { position: relative; z-index: 1; }
+
+/* ── Custom cursor (desktop, fine pointer only) ── */
+#cursor {
+  position: fixed; top: 0; left: 0; width: 24px; height: 24px;
+  border: 1px solid var(--gold); border-radius: 50%; pointer-events: none; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  transform: translate(-50%, -50%);
+  transition: width .25s var(--ease), height .25s var(--ease), background-color .25s var(--ease), border-color .25s var(--ease);
+  opacity: 0;
+}
+#cursor.ready { opacity: 1; }
+#cursor.hover { width: 42px; height: 42px; background: var(--gold-soft); }
+#cursor.labeled { width: 68px; height: 68px; background: var(--gold-soft); border-color: transparent; }
+#cursor.click { transform: translate(-50%, -50%) scale(0.85); }
+#cursor-label {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold);
+  opacity: 0; transition: opacity .2s var(--ease); white-space: nowrap;
+}
+#cursor.labeled #cursor-label { opacity: 1; }
+
+/* Hide the native pointer only where the custom ring runs. select keeps its
+   own so the dropdown stays usable. */
+@media (hover: hover) and (pointer: fine) {
+  html, body, a, button { cursor: none; }
+  select { cursor: auto; }
+}
+/* Touch / coarse pointers never see the ring and keep the native cursor. */
+@media (hover: none), (pointer: coarse) { #cursor { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #ambient-glow .glow { animation: none; }
+  #ambient-glow .glow.g1 { top: 15%; left: 10%; }
+  #ambient-glow .glow.g2 { top: 45%; left: 60%; }
+  .mote { display: none; }
+}

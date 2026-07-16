@@ -21,18 +21,18 @@ const isReference = !!p.reference_image;
 ---
 
 {p.image ? (
-  <div class:list={['frame', { 'frame-faded': faded, 'frame-reference': isReference }]}>
+  <div data-reveal="frame" class:list={['frame', { 'frame-faded': faded, 'frame-reference': isReference }]}>
     <img src={p.image} alt={p.title ?? ''} loading="lazy" />
     {isReference && <span class="frame-label">Reference image — not the actual piece</span>}
   </div>
 ) : sketch ? (
-  <div class="frame frame-sketch">
+  <div data-reveal="frame" class="frame frame-sketch">
     <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
     <div class="sketch-art" set:html={sketch}></div>
     <span class="frame-label">{label ?? 'Sketch — sourcing in progress'}</span>
   </div>
 ) : (
-  <div class="frame frame-waiting">
+  <div data-reveal="frame" class="frame frame-waiting">
     <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
     <span class="frame-no serif">N° {p.sku}</span>
     <span class="frame-label">{p.status === 'coming-soon' ? 'Sourcing in progress' : 'Object held by DOKU'}</span>

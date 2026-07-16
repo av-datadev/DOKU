@@ -1,0 +1,29 @@
+---
+// Scroll-reveal observer (Session 19). Adds `.is-in` to each [data-reveal]
+// element the first time it enters the viewport, then unobserves it. Paired
+// with reveal.css. Elements already in view on load reveal immediately (the
+// observer fires for them on observe). If IntersectionObserver is unavailable,
+// everything is revealed at once so nothing stays hidden.
+---
+
+<script>
+  const els = document.querySelectorAll('[data-reveal]');
+  if (els.length) {
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries, obs) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-in');
+              obs.unobserve(e.target);
+            }
+          }
+        },
+        { rootMargin: '0px 0px -10% 0px', threshold: 0.15 },
+      );
+      els.forEach((el) => io.observe(el));
+    } else {
+      els.forEach((el) => el.classList.add('is-in'));
+    }
+  }
+</script>

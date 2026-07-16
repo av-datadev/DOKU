@@ -8,10 +8,14 @@ import '../styles/bars.css';
 import '../styles/hero.css';
 import '../styles/archive.css';
 import '../styles/provenance.css';
+import '../styles/ambient.css';
+import '../styles/reveal.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import RegionBar from '../components/RegionBar.astro';
 import ConsentBar from '../components/ConsentBar.astro';
+import Ambient from '../components/Ambient.astro';
+import Reveal from '../components/Reveal.astro';
 
 interface Props {
   title?: string;
@@ -32,6 +36,12 @@ const {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0E0C0A" />
+    <script is:inline>
+      // Mark JS-capable BEFORE first paint so scroll-reveal hidden states apply
+      // without a flash (see reveal.css). No-JS visitors never get the hidden
+      // states, so content stays visible for them.
+      document.documentElement.classList.add('js');
+    </script>
     <script is:inline>
       // GA4 stub — defined but never loaded/configured until the visitor
       // clicks Accept on the consent bar (see ConsentBar.astro). Decline, or
@@ -58,6 +68,7 @@ const {
     />
   </head>
   <body>
+    <Ambient />
     <Header />
     <main id="app">
       <slot />
@@ -65,5 +76,6 @@ const {
     <Footer />
     <RegionBar />
     <ConsentBar />
+    <Reveal />
   </body>
 </html>

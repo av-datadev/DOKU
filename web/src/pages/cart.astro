@@ -34,7 +34,7 @@ const rates = await fetchRates();
           <span>Total</span>
           <span class="serif" id="cart-total" data-usd={total}>{formatMoney(total, currency, rates)}</span>
         </div>
-        <a href="/checkout" class="btn-gold" style="display:block;text-align:center;text-decoration:none;">
+        <a href="/checkout" class="btn-gold" style="display:block;text-align:center;text-decoration:none;" data-cursor="Checkout">
           <span>Proceed to checkout</span>
         </a>
       </>

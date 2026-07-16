@@ -18,6 +18,35 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 
+// Fire-and-forget Sentry capture (dependency-free envelope POST). Never throws.
+// DSN is a write-only ingest key; read from env with a fallback so it works
+// even before the SENTRY_DSN secret is set. We ONLY call this for money-
+// critical faults (a captured payment that failed to reserve, or an unexpected
+// crash) — never for expected 4xx like a bad signature, which would be noise.
+async function sentry(err: unknown, extra: Record<string, unknown> = {}) {
+  try {
+    const dsn = Deno.env.get("SENTRY_DSN") ??
+      "https://c9e59ba11261521cfb64b18666157efb@o4511745144061952.ingest.de.sentry.io/4511745519779920";
+    const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(.+)$/);
+    if (!m) return;
+    const [, key, host, project] = m;
+    const eid = crypto.randomUUID().replace(/-/g, "");
+    const now = new Date().toISOString();
+    const isErr = err instanceof Error;
+    const event = {
+      event_id: eid, timestamp: now, platform: "javascript", level: "error",
+      server_name: "razorpay-verify-payment", environment: "production",
+      tags: { fn: "razorpay-verify-payment" },
+      extra: { ...extra, ...(isErr && err.stack ? { stack: err.stack } : {}) },
+      exception: { values: [{ type: isErr ? err.name : "Error", value: isErr ? err.message : String(err) }] },
+    };
+    await fetch(`https://${host}/api/${project}/envelope/?sentry_key=${key}&sentry_version=7`, {
+      method: "POST", headers: { "Content-Type": "application/x-sentry-envelope" },
+      body: `${JSON.stringify({ event_id: eid, sent_at: now })}\n${JSON.stringify({ type: "event" })}\n${JSON.stringify(event)}\n`,
+    });
+  } catch { /* monitoring must never break the request */ }
+}
+
 async function hmacHex(secret: string, msg: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -103,6 +132,12 @@ Deno.serve(async (req) => {
   if (!rpc.ok) {
     // Payment succeeded but reservation failed (e.g. item taken between pay
     // and verify). Surface clearly — this needs a manual refund/reconcile.
+    // This is the single most important thing to be alerted about: a real
+    // charge with no matching order. Fire a Sentry event.
+    await sentry(new Error("paid_but_unreserved: captured payment did not reserve"), {
+      razorpay_payment_id, razorpay_order_id, skus,
+      rpc_message: typeof order_code?.message === "string" ? order_code.message : undefined,
+    });
     return json({
       error: "paid_but_unreserved",
       message: typeof order_code?.message === "string" ? order_code.message : "Item unavailable after payment",

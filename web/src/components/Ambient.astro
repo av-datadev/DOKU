@@ -1,0 +1,84 @@
+---
+// Restored ambient effects (Session 19): the drifting golden background glow
+// (pure CSS, in ambient.css), the rising gold "dust" motes, and the custom
+// trailing cursor. The cursor script is a small self-contained mousemove RAF —
+// it never touches scrolling, so it is safe on real multi-page SSR (unlike the
+// old momentum-scroll it used to be bundled with). Runs once per page load;
+// guarded to fine-pointer devices.
+
+// Dust motes: 20 tiny gold particles with randomized column, size, speed and
+// start delay — generated server-side (same as the original, which pre-rendered
+// them once). Pure CSS `rise` animation lifts each up through the glow; no
+// client JS. Values match the old site's ranges (2.2–4px, 14–26s, 0–18s delay).
+const rand = (min: number, max: number) => min + Math.random() * (max - min);
+const motes = Array.from({ length: 20 }, () => {
+  const size = rand(2.2, 4).toFixed(1);
+  return {
+    left: rand(2, 96).toFixed(1),
+    delay: rand(0, 18).toFixed(1),
+    duration: rand(14, 26).toFixed(1),
+    size,
+  };
+});
+---
+
+<div id="ambient-glow" aria-hidden="true"><div class="glow g1"></div><div class="glow g2"></div></div>
+<div id="dust" aria-hidden="true">
+  {motes.map((m) => (
+    <span
+      class="mote"
+      style={`left:${m.left}%; animation-delay:${m.delay}s; animation-duration:${m.duration}s; width:${m.size}px; height:${m.size}px;`}
+    ></span>
+  ))}
+</div>
+<div id="cursor" aria-hidden="true"><span id="cursor-label"></span></div>
+
+<script>
+  const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const cursorEl = document.getElementById('cursor');
+  const labelEl = document.getElementById('cursor-label');
+
+  if (fine && cursorEl && labelEl) {
+    // Eased trailing ring. lerp 0.18 → the ring lags the real pointer slightly,
+    // the signature "weighted" feel. Pure transform/position, no layout, no scroll.
+    let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    let cx = mx, cy = my;
+
+    window.addEventListener('mousemove', (e) => {
+      mx = e.clientX; my = e.clientY;
+      cursorEl.classList.add('ready');
+    });
+
+    (function loop() {
+      cx += (mx - cx) * 0.18;
+      cy += (my - cy) * 0.18;
+      cursorEl.style.left = cx + 'px';
+      cursorEl.style.top = cy + 'px';
+      requestAnimationFrame(loop);
+    })();
+
+    // Grow over any interactive element; show a label when it carries
+    // data-cursor (e.g. "View", "Hold", "Checkout").
+    document.addEventListener('mouseover', (e) => {
+      const t = e.target as HTMLElement;
+      const labeled = t.closest('[data-cursor]') as HTMLElement | null;
+      const generic = t.closest('a, button') as HTMLElement | null;
+      if (labeled && !(labeled as HTMLButtonElement).disabled) {
+        cursorEl.classList.add('labeled');
+        cursorEl.classList.remove('hover');
+        labelEl.textContent = labeled.dataset.cursor ?? '';
+      } else if (generic && !(generic as HTMLButtonElement).disabled) {
+        cursorEl.classList.add('hover');
+      }
+    });
+    document.addEventListener('mouseout', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-cursor], a, button')) {
+        cursorEl.classList.remove('hover', 'labeled');
+        labelEl.textContent = '';
+      }
+    });
+    document.addEventListener('mousedown', () => cursorEl.classList.add('click'));
+    document.addEventListener('mouseup', () => cursorEl.classList.remove('click'));
+  }
+</script>

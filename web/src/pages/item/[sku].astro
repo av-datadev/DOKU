@@ -82,7 +82,7 @@ if (signedIn && canWishlist) {
             <input type="hidden" name="action" value="hold" />
             <input type="hidden" name="sku" value={p.sku} />
             <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
-            <button class="btn-gold" type="submit" id="hold-btn" disabled={inCart}>
+            <button class="btn-gold" type="submit" id="hold-btn" disabled={inCart} data-cursor="Hold">
               <span id="hold-btn-label">{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
             </button>
           </form>
@@ -109,7 +109,7 @@ if (signedIn && canWishlist) {
               <input id="notify-email" name="email" type="email" required placeholder="you@email.com" />
             </div>
             <p class="fine-print">Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
-            <button class="btn-gold" type="submit"><span>Notify me</span></button>
+            <button class="btn-gold" type="submit" data-cursor="Notify"><span>Notify me</span></button>
           </form>
           <div id="notify-result" class="claim-sub" style="margin-top:14px;"></div>
         </>
@@ -197,7 +197,7 @@ if (signedIn && canWishlist) {
 
   {related.length > 0 && (
     <>
-      <section class="section-head">
+      <section class="section-head" data-reveal="line">
         <div class="eyebrow">Also in the collection</div>
         <h2 class="serif">You may not see these again</h2>
       </section>

@@ -38,7 +38,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
       <div class="hero-brand">DOKU</div>
       <div class="hero-tagline">Found. Not made.</div>
       <h1 class="hero-headline" style="margin-top:36px;">Only one.<br /><em>So are you.</em></h1>
-      <a href="/collection" class="hero-cta"><span>Explore the collection</span></a>
+      <a href="/collection" class="hero-cta" data-cursor="Explore"><span>Explore the collection</span></a>
     </div>
     <div class="hero-scroll" aria-hidden="true">
       <div class="hero-scroll-line"></div>
@@ -64,7 +64,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
 
   {available.length > 0 && (
     <>
-      <section class="section-head">
+      <section class="section-head" data-reveal="line">
         <div class="eyebrow">Currently held</div>
         <h2 class="serif">Available now</h2>
         <p>Every piece below exists once — same as the people who keep them. Once it's gone, this page forgets it was ever here.</p>
@@ -82,7 +82,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
 
   {comingSoon.length > 0 && (
     <>
-      <section class="section-head">
+      <section class="section-head" data-reveal="line">
         <div class="eyebrow">Still being found</div>
         <h2 class="serif">Coming soon</h2>
         <p>Directions we're chasing. Not yet found, not yet priced.</p>
@@ -95,7 +95,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
 
   {claimed.length > 0 && (
     <>
-      <section class="section-head">
+      <section class="section-head" data-reveal="line">
         <div class="eyebrow">No longer available</div>
         <h2 class="serif">The archive</h2>
         <p>Once held by DOKU. Now held by someone else — and not by anyone after them.</p>

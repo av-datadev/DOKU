@@ -22,6 +22,7 @@ const isSoon = p.status === 'coming-soon';
   class:list={['item', { 'coming-card': isSoon }]}
   data-origin={p.origin ?? ''}
   data-price={p.price ?? ''}
+  data-cursor={isSoon ? 'Preview' : 'View'}
 >
   <div class="seal"><span class="seal-no serif">N° {p.sku}</span></div>
   <Frame product={p} />

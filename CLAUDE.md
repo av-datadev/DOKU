@@ -60,6 +60,27 @@ DOKU" for exactly this reason).
   nothing playful.
 - Signature device: a gold corner-bracket "vitrine" frame, used for any
   product that doesn't have a real photo yet.
+- Ambient effects (restored 2026-07-16 after being dropped in the Astro port):
+  a drifting **golden background glow** (two slow radial-gradient blobs, pure
+  CSS — `web/src/styles/ambient.css`), **rising gold "dust" motes** (20 tiny
+  particles drifting up through the glow, sizes/speeds/columns randomized
+  server-side in `web/src/components/Ambient.astro`, pure-CSS `rise` animation),
+  and a **custom trailing cursor** (gold ring that lags the pointer, grows over
+  interactive elements, and shows a word label — View / Hold / Checkout / etc.,
+  from a `data-cursor` attribute on the primary CTAs — desktop/fine-pointer
+  only). All restored
+  WITHOUT the old momentum/weighted scroll they were originally bundled with —
+  that scroll-hijack is what actually conflicted with real multi-page SSR loads
+  and stays out. Both honor `prefers-reduced-motion`; the cursor hides on
+  touch/coarse pointers (native cursor kept there).
+- Scroll reveals (added 2026-07-16, `web/src/styles/reveal.css` +
+  `web/src/components/Reveal.astro`): as elements scroll into view, product
+  **vitrine frames unmask left-to-right** (clip-path wipe) and a **gold hairline
+  draws in** under each section heading. One shared `IntersectionObserver`
+  toggles an `.is-in` class. Progressive enhancement — the hidden initial states
+  apply only under a `.js` class set in `<head>` before first paint, so no-JS
+  visitors (or any observer failure) get everything visible; reduced-motion
+  collapses to the final look with no animation.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. **Never display an image of an object DOKU doesn't physically own**, even
@@ -320,8 +341,64 @@ served) and is cleanup debt; edit `web/public/admin.html` only.
   for what's collected and where it goes — keep it in sync if any of the
   above changes.
 
+## Monitoring — Sentry (error alerting)
+Error monitoring runs through **Sentry** (free Developer plan; EU-hosted
+project, DSN `…@o4511745144061952.ingest.de.sentry.io/4511745519779920`).
+Deliberately **no Sentry SDK** — a dependency-free helper POSTs an error
+*envelope* over `fetch`, so nothing is added to the payment-path bundle or
+cold start. Two mirror copies of the same tiny helper:
+- **SSR Worker:** `web/src/lib/sentry.ts` (`captureError()`), wired into
+  `web/src/middleware.ts` — any unhandled SSR throw or 5xx response is
+  captured. DSN read from the `SENTRY_DSN` Worker var (`web/wrangler.jsonc`
+  `vars`), with a hardcoded fallback. A Sentry DSN is a write-only ingest key,
+  safe to expose — it is **not** a secret (same class as a browser DSN).
+- **Edge Functions:** an inline `sentry()` helper in `razorpay-verify-payment`,
+  `razorpay-refund`, and `razorpay-create-order` — all three **deployed live
+  2026-07-16** with the capture in place. Reads `SENTRY_DSN` from Deno env with
+  the same fallback.
+- **What's captured (deliberately narrow, to avoid alert fatigue + free-tier
+  quota burn):** money-critical faults only — `paid_but_unreserved` (a
+  captured payment that failed to reserve — the single most important alert),
+  a Razorpay refund that failed or succeeded-but-wasn't-recorded, a Razorpay
+  order-creation failure, and unhandled SSR 5xx. Expected 4xx (bad signature,
+  not-an-admin, item-already-taken) are **not** captured — they're noise.
+- Alerts go to **email** (Sentry's built-in default). SMS later can reuse the
+  same Twilio account the phone-OTP flag will need.
+
 ## Known gaps / likely next steps
-- No real product photography yet — placeholders and sketches throughout
+- No real product photography yet — placeholders and sketches throughout.
+  **Object storage now exists for this:** a Cloudflare **R2** bucket
+  `doku-product-images` was created 2026-07-16 and bound into the Worker as
+  `PRODUCT_IMAGES` (`web/wrangler.jsonc`). Nothing reads/writes it yet — the
+  `admin.html` upload path and an image-serving route are still to build.
+  Chosen over Supabase Storage: R2's free tier is larger (10GB vs 1GB),
+  permanent, egress-free, and native to the existing Cloudflare stack.
+- **🔴 OPEN SECURITY ISSUE — payment bypass.** `place_order_paid()` (and the
+  old free `place_order()`) are still directly executable by `anon`/
+  `authenticated` via PostgREST, despite `revoke ... from public` in their
+  migrations — Supabase grants EXECUTE directly to those roles on function
+  creation, and revoking from the `PUBLIC` pseudo-role never touched those
+  grants. Confirmed live via `has_function_privilege()`. Impact: anyone can
+  call `place_order_paid` with fabricated Razorpay ids and reserve a one-of-one
+  for free, bypassing payment entirely — breaks Hard rule 4's core guarantee.
+  Fix is a two-line restrictive migration (`revoke all ... from anon,
+  authenticated` on both functions; re-grant `place_order_paid` to
+  `service_role` only). **FIXED 2026-07-16** — migration
+  `fix_place_order_paid_privilege_leak` applied live; `has_function_privilege()`
+  now returns false for `anon` and `authenticated` on both functions (only
+  `service_role`, which the verify-payment Edge Function uses, can execute).
+- **Refunds — capability built.** A `razorpay-refund` Edge Function (admin-
+  gated: verifies the caller's JWT, re-checks `is_admin()`, calls Razorpay's
+  refund API, records `refund_id`/`refunded_amount_inr`/`refunded_at` +
+  `order_status:'refunded'`), invoked from a **Refund** button per order in
+  `admin.html`; `/account` shows a refunded order as "Refunded" instead of the
+  step tracker. Migration `20260716_refunds.sql` + the function are **deployed
+  live**; the `admin.html`/`account.astro` UI is code, live on next Worker
+  deploy. Full refunds only (each order is one one-of-one piece). `'refunded'`
+  is reachable ONLY through the button (a real Razorpay refund), never the
+  plain status dropdown — so the column can't claim money moved that didn't.
+  **Returns *policy* still undecided** — this is the mechanism, not a customer-
+  facing returns flow.
 - **Razorpay real payments not yet possible.** The integration itself is
   live and correct (see "Payments") but running in test mode — PAN/KYC isn't
   done, so no live keys exist. Real customer cards will fail at checkout
@@ -336,7 +413,9 @@ served) and is cleanup debt; edit `web/public/admin.html` only.
   stay open to guests) — this replaced the earlier guest-checkout default at the
   owner's request. See "Customer accounts". Still not built: a functional
   off-market "hold" (deliberately — conflicts with the one-of-one + "reserved =
-  paid" model), and order status stops at `delivered` (no returns flow).
+  paid" model). Order status now includes `refunded` (see Monitoring/refunds
+  above) — the refund *mechanism* exists, but a customer-facing returns *flow*/
+  policy is still undecided.
 - No domain email yet — `enquiry@` / `admin@discoverdoku.com` mailboxes
   (Google Workspace) are planned but not set up, so `admin@` password-reset
   emails can't be delivered (rotate the password in-app instead).
