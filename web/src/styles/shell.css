@@ -120,11 +120,16 @@ header.scrolled .logo { letter-spacing: 0.18em; }
 }
 #mobile-menu a:last-child { border-bottom: none; }
 #mobile-menu a:hover { color: var(--gold); }
-#mobile-menu.open a:nth-child(2) { opacity: 1; transform: none; transition-delay: .18s; }
-#mobile-menu.open a:nth-child(3) { opacity: 1; transform: none; transition-delay: .24s; }
-#mobile-menu.open a:nth-child(4) { opacity: 1; transform: none; transition-delay: .30s; }
-#mobile-menu.open a:nth-child(5) { opacity: 1; transform: none; transition-delay: .36s; }
-#mobile-menu.open a:nth-child(6) { opacity: 1; transform: none; transition-delay: .42s; }
+/* Reveal every link on open (independent of how many nav items exist, so a
+   new entry can't silently stay at opacity:0); the nth-child rules only stagger
+   the timing of the first several. */
+#mobile-menu.open a { opacity: 1; transform: none; }
+#mobile-menu.open a:nth-child(2) { transition-delay: .18s; }
+#mobile-menu.open a:nth-child(3) { transition-delay: .24s; }
+#mobile-menu.open a:nth-child(4) { transition-delay: .30s; }
+#mobile-menu.open a:nth-child(5) { transition-delay: .36s; }
+#mobile-menu.open a:nth-child(6) { transition-delay: .42s; }
+#mobile-menu.open a:nth-child(7) { transition-delay: .48s; }
 #mobile-menu .close-btn {
   position: absolute; top: 28px; right: 28px;
   background: none; border: none; color: var(--muted);

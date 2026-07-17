@@ -97,7 +97,10 @@
 /* ── HOME CAROUSEL (Available now) ── */
 .carousel { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .carousel::-webkit-scrollbar { display: none; }
-.carousel-track { display: flex; gap: 28px; width: max-content; padding: 2px 2px 14px; }
+/* Side padding matches the site content gutter (.wrap / .section-head) so the
+   first card's edge aligns with the headings instead of sitting flush against
+   the viewport; the trailing gutter is preserved through the scroll too. */
+.carousel-track { display: flex; gap: 28px; width: max-content; padding: 2px 48px 14px; }
 .carousel-track .item { width: 300px; flex: 0 0 300px; border: 1px solid var(--hairline); }
 
 .more {
@@ -112,7 +115,7 @@
   .marquee-track { animation: none; }
 }
 @media (max-width: 600px) {
-  .carousel-track { gap: 18px; }
+  .carousel-track { gap: 18px; padding: 2px 24px 14px; }
   .carousel-track .item { width: 80vw; flex: 0 0 80vw; }
   .manifesto { padding: 80px 24px; }
   .hero-headline { font-size: clamp(48px, 14vw, 80px); }
