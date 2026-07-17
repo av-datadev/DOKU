@@ -1,0 +1,26 @@
+/* Legal / compliance pages — Terms, Refund Policy, Shipping. Shares .narrow +
+   .page-head with privacy.astro (checkout.css); this file adds the section
+   rhythm for longer clause-based reading. */
+
+.legal-section { margin-bottom: 40px; }
+.legal-section:last-child { margin-bottom: 0; }
+.legal-section h2 {
+  font-family: 'Fraunces', serif; font-weight: 300; font-size: 22px;
+  margin-bottom: 14px; color: var(--ivory);
+}
+.legal-section p { font-size: 14px; line-height: 1.85; color: var(--muted); }
+.legal-section p + p { margin-top: 14px; }
+.legal-section strong { color: var(--ivory); font-weight: 500; }
+
+.legal-list { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.legal-list li { display: flex; gap: 14px; align-items: flex-start; font-size: 14px; line-height: 1.8; color: var(--muted); }
+.legal-list li::before { content: '—'; color: var(--gold); flex-shrink: 0; margin-top: 1px; }
+
+.legal-updated {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--claimed);
+  margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--hairline);
+}
+
+/* [[fill]] marks a fact the owner needs to supply before launch (legal entity
+   name, registered address, etc.) — rendered visibly so it can't ship unnoticed. */
+.legal-fill { color: var(--gold); font-style: italic; }

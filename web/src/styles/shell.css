@@ -90,8 +90,15 @@ header.scrolled .logo { letter-spacing: 0.18em; }
   background: var(--bg-card);
   border-left: 1px solid var(--hairline);
   z-index: 900;
-  display: flex; flex-direction: column; justify-content: center; gap: 0;
-  padding: 60px 48px;
+  /* flex-start + overflow-y:auto, not justify-content:center: with 6 links,
+     centering could push items off both the top AND bottom edge with nothing
+     obviously indicating a scroll would reveal them — Sign in ends up
+     unreachable-looking even though it's in the DOM. Top-aligned + scrollable
+     stays reachable by scrolling down, regardless of link count or screen
+     height. */
+  display: flex; flex-direction: column; justify-content: flex-start; gap: 0;
+  padding: 88px 48px 40px;
+  overflow-y: auto;
   transform: translateX(100%);
   pointer-events: none;
   transition: transform .55s var(--ease);
@@ -120,11 +127,18 @@ header.scrolled .logo { letter-spacing: 0.18em; }
 }
 #mobile-menu a:last-child { border-bottom: none; }
 #mobile-menu a:hover { color: var(--gold); }
+/* Staggered reveal, one rule per link position. The Sign in/Account link is
+   the 7th child (Close + 5 nav links + Cart) — a fixed list stopping at
+   nth-child(6) left it permanently opacity:0 (invisible, not just off-screen).
+   Extended with headroom past the current 7 children for future nav items. */
 #mobile-menu.open a:nth-child(2) { opacity: 1; transform: none; transition-delay: .18s; }
 #mobile-menu.open a:nth-child(3) { opacity: 1; transform: none; transition-delay: .24s; }
 #mobile-menu.open a:nth-child(4) { opacity: 1; transform: none; transition-delay: .30s; }
 #mobile-menu.open a:nth-child(5) { opacity: 1; transform: none; transition-delay: .36s; }
 #mobile-menu.open a:nth-child(6) { opacity: 1; transform: none; transition-delay: .42s; }
+#mobile-menu.open a:nth-child(7) { opacity: 1; transform: none; transition-delay: .48s; }
+#mobile-menu.open a:nth-child(8) { opacity: 1; transform: none; transition-delay: .54s; }
+#mobile-menu.open a:nth-child(9) { opacity: 1; transform: none; transition-delay: .60s; }
 #mobile-menu .close-btn {
   position: absolute; top: 28px; right: 28px;
   background: none; border: none; color: var(--muted);
@@ -142,7 +156,7 @@ footer {
   position: relative; z-index: 2;
 }
 .logo-mark { font-family: 'Fraunces', serif; font-size: 18px; letter-spacing: 0.18em; font-weight: 500; }
-footer nav { display: flex; gap: 32px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 20px 28px; }
 footer nav a { color: var(--claimed); text-decoration: none; transition: color .3s; }
 footer nav a:hover { color: var(--gold); }
 

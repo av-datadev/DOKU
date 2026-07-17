@@ -4,13 +4,16 @@ const NAV = [
   { href: '/archive', label: 'Archive' },
   { href: '/provenance', label: 'Provenance' },
   { href: '/inquire', label: 'Inquire' },
+  { href: '/terms', label: 'Terms' },
+  { href: '/refund-policy', label: 'Refunds' },
+  { href: '/shipping', label: 'Shipping' },
   { href: '/privacy', label: 'Privacy' },
 ];
 ---
 
 <footer>
   <div class="logo-mark">DOKU</div>
-  <div>Handpicked. Found once. Never repeated.</div>
+  <div>Handpicked. Chosen the way you were.</div>
   <nav>
     {NAV.map((n) => <a href={n.href}>{n.label}</a>)}
   </nav>
