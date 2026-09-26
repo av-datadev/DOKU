@@ -133,6 +133,7 @@
 .motion .archive-item.m-signed .epitaph::after { transform: scaleX(1); }
 
 /* ── PROVENANCE · veil, flash, criteria ticks ── */
+.prov-hero .ph-line { display: inline-block; }
 .m-veil {
   position: fixed; inset: 0; background: var(--bg); opacity: 0;
   pointer-events: none; z-index: 40;
@@ -148,7 +149,8 @@
 .motion .prov-criteria li { position: relative; }
 
 /* ── CONFIRMATION · brackets lock around the order code (CSS only, calm) ── */
-.order-lock { position: relative; display: inline-block; padding: 14px 22px; }
+.order-lock { position: relative; display: inline-block; padding: 14px 22px; margin: 26px 0 44px; }
+.order-lock .order-id { margin: 0; }
 .order-lock .brackets { --b-size: 12px; }
 .order-lock .corner { animation: lock-in .5s var(--ease) .35s both; }
 .order-lock .corner.tl { --dx: -14px; --dy: -14px; }

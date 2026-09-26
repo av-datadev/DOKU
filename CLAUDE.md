@@ -81,6 +81,34 @@ DOKU" for exactly this reason).
   apply only under a `.js` class set in `<head>` before first paint, so no-JS
   visitors (or any observer failure) get everything visible; reduced-motion
   collapses to the final look with no animation.
+- **Motion film (added 2026-09-26)** — the browsing pages (`/`, `/collection`,
+  `/item/:sku`, `/archive`, `/provenance`) play as a scroll-scrubbed motion
+  film: **GSAP + ScrollTrigger/SplitText/Flip** (npm, free since 2025), cut to
+  a fixed **96 BPM beat grid** (`web/src/motion/beat.ts`: 1 beat = 0.625s =
+  12vh of scroll, ×0.6 on phones). Shared primitives in
+  `web/src/motion/core.ts`; one scene module per page in
+  `web/src/motion/scenes/`. Home = 1/1 hook → push through the O → kinetic
+  word cuts → lit manifesto → horizontal tracking shot → sketch draws →
+  archive colour drain → bracket-locked final frame. Spec:
+  `docs/superpowers/specs/2026-09-26-scroll-motion-design.md`.
+  - **Still no scroll hijack:** native scroll only — pinned scenes (GSAP
+    `pin`) are fine, but never `snap`, smooth-scroll libs, or wheel capture.
+  - **Gate:** `Base.astro`'s `motion` prop (`'full'` | `'calm'`, default
+    calm). A head script sets `html.motion` only on full pages without
+    reduced motion; every hidden initial state lives under `.motion` in
+    `web/src/styles/motion.css`. A 3.5s watchdog strips `.motion` (plain
+    site) if the scene never calls `ready()`. On `.motion` pages the scenes
+    own `[data-reveal]`; `Reveal.astro` stands down.
+  - **Calm pages** (cart, checkout, login, account, inquire, confirmation,
+    legal) never import GSAP — nothing added to the payment path — and get
+    only a 300ms fade + the page cut.
+  - **Page cuts:** native cross-document View Transitions (`@view-transition`)
+    — a gold hairline wipe, plus a card→item frame **match cut** driven by a
+    render-blocking `pageswap`/`pagereveal` script in `Base.astro` (the item
+    page's big frame is `#item-frame`).
+  - Dev builds expose `window.__gsap` / `window.__dokuHook` for stepping
+    animations in a backgrounded preview (rAF pauses there); stripped from
+    production builds.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. **Never display an image of an object DOKU doesn't physically own**, even

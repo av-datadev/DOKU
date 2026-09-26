@@ -29,7 +29,10 @@ const rates = await fetchRates();
         <p style="color:var(--muted);font-size:15px;line-height:1.8;">
           {order.name ? `${order.name}, ` : ''}no one else can claim these while we finish the details on our end.
         </p>
-        <div class="order-id">Order {order.code}</div>
+        <div class="order-lock">
+          <div class="brackets" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+          <div class="order-id">Order {order.code}</div>
+        </div>
         <div class="confirm-list">
           {items.map((p) => <CartRow product={p} currency={currency} rates={rates} />)}
         </div>

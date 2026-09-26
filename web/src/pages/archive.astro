@@ -7,11 +7,12 @@ const products = await fetchProducts();
 const claimed = products.filter((p) => p.status === 'claimed');
 ---
 
-<Base title="The Archive — DOKU">
-  <section class="section-head" data-reveal="line">
+<Base motion="full" title="The Archive — DOKU">
+  <div class="drained">
+  <section class="section-head" data-reveal="line" data-scene="head">
     <div class="eyebrow">No longer available</div>
-    <h2 class="serif">The archive</h2>
-    <p>Proof of what existed, and that it is gone. Nothing here returns.</p>
+    <h2 class="serif" data-m-hide>The archive</h2>
+    <p data-m-hide>Proof of what existed, and that it is gone. Nothing here returns.</p>
   </section>
 
   {claimed.length > 0 && (
@@ -32,7 +33,13 @@ const claimed = products.filter((p) => p.status === 'claimed');
   <div id="archive-no-results" style="display:none; text-align:center; padding:80px 48px; color:var(--claimed); font-family:'Archivo',sans-serif; font-size:13px; letter-spacing:0.08em;">
     Nothing found. <button type="button" id="archive-clear-inline">Clear.</button>
   </div>
+  </div>
 </Base>
+
+<script>
+  import { initArchive } from '../motion/scenes/archive';
+  initArchive();
+</script>
 
 <script>
   const input = document.getElementById('archive-search') as HTMLInputElement | null;

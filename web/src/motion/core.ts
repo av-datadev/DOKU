@@ -275,5 +275,9 @@ export function ready(): void {
         snapBrackets(el, { delay: 0.12 + i * EIGHTH * 0.5 });
       }),
   });
+  // Scenes may create plain triggers before a later pin (e.g. a chapter's
+  // paragraphs before its pull quote pins); sort into page order so every
+  // start accounts for the pin spacing above it, then measure.
+  ScrollTrigger.sort();
   ScrollTrigger.refresh();
 }
