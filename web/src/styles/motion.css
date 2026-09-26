@@ -32,8 +32,16 @@
 .motion .archive-item:not(.m-in) > :not(.frame) { opacity: 0; }
 .motion .grid-filtered .item { animation: none; }
 .motion [data-lamp]:not(.m-split) { visibility: hidden; }
+.motion [data-m-hide] { opacity: 0; }
+/* Parallax owns the image's transform; keep the hover zoom via the separate
+   `scale` property, which composes with it. */
+.motion .item .frame img { transition: scale .6s var(--ease); }
+.motion .item:hover .frame img { scale: 1.03 !important; }
 .motion .frame img,
 .motion .frame .sketch-art { will-change: transform; }
+
+/* ── ITEM · the info column lands on eighth-notes (CTAs stay clickable) ── */
+.motion .product-info > * { opacity: 0; }
 
 /* ── HOME · scene 0 hook + scene 1 hero ── */
 .hook { display: none; }

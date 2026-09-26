@@ -15,7 +15,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 import { Flip } from 'gsap/Flip';
-import { EIGHTH } from './beat';
+import { BEAT, EIGHTH } from './beat';
 
 gsap.registerPlugin(ScrollTrigger, SplitText, Flip);
 // Hits snap in and settle (house curve); scrubbed moves stay linear so the
@@ -23,6 +23,9 @@ gsap.registerPlugin(ScrollTrigger, SplitText, Flip);
 gsap.defaults({ ease: 'expo.out' });
 
 export { gsap, ScrollTrigger, SplitText, Flip };
+
+// Dev-only handle so a backgrounded preview (paused rAF) can be stepped by hand.
+if (import.meta.env.DEV) (window as unknown as { __gsap: typeof gsap }).__gsap = gsap;
 
 declare global {
   interface Window {
@@ -192,6 +195,37 @@ export function lineIn(el: Element | null, delay = 0): void {
   if (!el) return;
   own(el);
   gsap.delayedCall(delay, () => el.classList.add('is-in'));
+}
+
+/** Section-head hook: title letters rise out of their baseline, the gold
+ *  hairline draws on the downbeat. Returns the timeline for sequencing. */
+export function headHook(head: Element, delay = 0): gsap.core.Timeline {
+  own(head);
+  const tl = gsap.timeline({ delay });
+  const title = head.querySelector('h1, h2');
+  if (title) {
+    const split = splitChars(title);
+    tl.set(title, { opacity: 1 }).from(split.chars, { yPercent: 110, duration: 0.7, stagger: 0.03 }, 0);
+  }
+  tl.call(() => head.classList.add('is-in'), [], BEAT);
+  return tl;
+}
+
+/** The "camera" inside a frame: its image/sketch drifts against the scroll,
+ *  so a grid reads as depth without breaking the hairline layout. */
+export function frameParallax(frame: Element): void {
+  const img = frame.querySelector('img');
+  const inner = img ?? frame.querySelector('.sketch-art');
+  if (!inner) return;
+  gsap.fromTo(
+    inner,
+    { yPercent: -5, scale: img ? 1.12 : 1 },
+    {
+      yPercent: 5,
+      ease: 'none',
+      scrollTrigger: { trigger: frame, start: 'top bottom', end: 'bottom top', scrub: true },
+    },
+  );
 }
 
 /** Choreograph a DOM mutation (filtering): leavers fold away, stayers glide. */

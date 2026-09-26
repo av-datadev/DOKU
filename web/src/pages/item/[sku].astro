@@ -61,7 +61,7 @@ if (signedIn && canWishlist) {
 <Base motion="full" title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
   <div class="breadcrumb"><a href="/collection">The Collection</a> &nbsp;/&nbsp; N° {p.sku}</div>
 
-  <div class="product wrap">
+  <div class="product wrap" data-status={p.status}>
     <Frame id="item-frame" product={p} faded={!isAvailable && !isComingSoon} />
 
     <div class="product-info">
@@ -207,6 +207,11 @@ if (signedIn && canWishlist) {
     </>
   )}
 </Base>
+
+<script>
+  import { initItem } from '../../motion/scenes/item';
+  initItem();
+</script>
 
 <script>
   // Progressive enhancement for "Hold this DOKU": without JS the form POSTs to

@@ -29,10 +29,10 @@ const PRICE_PILLS = [
 ];
 ---
 
-<Base title="The Collection — DOKU">
-  <section class="section-head" data-reveal="line">
+<Base motion="full" title="The Collection — DOKU">
+  <section class="section-head" data-reveal="line" data-scene="head">
     <div class="eyebrow">Currently held</div>
-    <h2 class="serif">The collection</h2>
+    <h2 class="serif" data-m-hide>The collection</h2>
     <p>
       Every piece below is unclaimed — waiting for someone who was also made once,
       without a template. When it's gone, this page forgets it ever stood here.
@@ -43,16 +43,16 @@ const PRICE_PILLS = [
     <div class="filter-bar" id="filter-bar">
       <div class="filter-group">
         <span class="filter-label">Origin</span>
-        <button class="filter-pill active" data-filter="origin" data-filter-val="all">All</button>
+        <button class="filter-pill active" data-filter="origin" data-filter-val="all" data-m-hide>All</button>
         {origins.map((o) => (
-          <button class="filter-pill" data-filter="origin" data-filter-val={o}>{o.split(',')[0].trim()}</button>
+          <button class="filter-pill" data-filter="origin" data-filter-val={o} data-m-hide>{o.split(',')[0].trim()}</button>
         ))}
       </div>
       <div class="filter-divider"></div>
       <div class="filter-group">
         <span class="filter-label">Price</span>
         {PRICE_PILLS.map((r) => (
-          <button class:list={['filter-pill', { active: r.key === 'all' }]} data-filter="price" data-filter-val={r.key}>
+          <button class:list={['filter-pill', { active: r.key === 'all' }]} data-filter="price" data-filter-val={r.key} data-m-hide>
             {r.label}
           </button>
         ))}
@@ -78,7 +78,7 @@ const PRICE_PILLS = [
         <h2 class="serif">Coming soon</h2>
         <p>Directions we're chasing. Not yet found, not yet priced.</p>
       </section>
-      <div class="grid wrap" style="padding:0; margin-bottom:100px;">
+      <div class="grid wrap" data-scene="soon" style="padding:0; margin-bottom:100px;">
         {soon.map((p) => <ItemCard product={p} currency={currency} rates={rates} />)}
       </div>
     </>
@@ -86,6 +86,10 @@ const PRICE_PILLS = [
 </Base>
 
 <script>
+  import { initCollection } from '../motion/scenes/collection';
+  import { withFlip } from '../motion/core';
+  initCollection();
+
   // Client-side filtering over the SSR-rendered cards — hides/shows rather than
   // rebuilding innerHTML, so the server-rendered catalogue stays intact.
   const grid = document.getElementById('collection-grid');
@@ -126,7 +130,7 @@ const PRICE_PILLS = [
         state[group] = val;
         bar.querySelectorAll(`.filter-pill[data-filter="${group}"]`).forEach((p) => p.classList.remove('active'));
         pill.classList.add('active');
-        apply();
+        withFlip(cards, apply); // leavers fold away, stayers glide (plain apply() when motion is off)
       });
     });
 
@@ -136,7 +140,7 @@ const PRICE_PILLS = [
       bar.querySelectorAll<HTMLElement>('.filter-pill').forEach((p) =>
         p.classList.toggle('active', p.dataset.filterVal === 'all'),
       );
-      apply();
+      withFlip(cards, apply);
     };
     clearBtn?.addEventListener('click', reset);
     document.getElementById('clear-inline')?.addEventListener('click', reset);
