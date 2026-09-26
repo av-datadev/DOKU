@@ -7,8 +7,10 @@
 ---
 
 <script>
+  // On motion-film pages (html.motion) the scene modules own every reveal and
+  // time it to the beat — this observer stands down.
   const els = document.querySelectorAll('[data-reveal]');
-  if (els.length) {
+  if (els.length && !document.documentElement.classList.contains('motion')) {
     if ('IntersectionObserver' in window) {
       const io = new IntersectionObserver(
         (entries, obs) => {

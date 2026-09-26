@@ -58,11 +58,11 @@ if (signedIn && canWishlist) {
 }
 ---
 
-<Base title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
+<Base motion="full" title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
   <div class="breadcrumb"><a href="/collection">The Collection</a> &nbsp;/&nbsp; N° {p.sku}</div>
 
   <div class="product wrap">
-    <Frame product={p} faded={!isAvailable && !isComingSoon} />
+    <Frame id="item-frame" product={p} faded={!isAvailable && !isComingSoon} />
 
     <div class="product-info">
       <div class="seal-row">

@@ -11,6 +11,7 @@ import '../styles/provenance.css';
 import '../styles/ambient.css';
 import '../styles/reveal.css';
 import '../styles/legal.css';
+import '../styles/motion.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import RegionBar from '../components/RegionBar.astro';
@@ -21,12 +22,20 @@ import Reveal from '../components/Reveal.astro';
 interface Props {
   title?: string;
   description?: string;
+  /** 'full' = scroll-driven motion film (browsing pages; their scene module
+   *  loads GSAP). 'calm' = page cut + a short fade only (transactional pages —
+   *  no GSAP, nothing added to the payment path). */
+  motion?: 'full' | 'calm';
 }
 
 const {
   title = 'DOKU — one-of-one objects',
   description = 'A marketplace for one-of-one objects. Each is genuinely unique, sold once, never restocked.',
+  motion = 'calm',
 } = Astro.props;
+// Item pages hold first render until their big frame is parsed, so the match
+// cut can tag it in `pagereveal` (see the head script).
+const isItemPage = Astro.url.pathname.startsWith('/item/');
 ---
 
 <!doctype html>
@@ -42,6 +51,65 @@ const {
       // without a flash (see reveal.css). No-JS visitors never get the hidden
       // states, so content stays visible for them.
       document.documentElement.classList.add('js');
+    </script>
+    <script is:inline define:vars={{ motion }}>
+      // Motion film gate (see src/motion/core.ts). `.motion` — and with it every
+      // hidden initial state in motion.css — is set only on full pages, and never
+      // for visitors who prefer reduced motion. Watchdog: if the scene module
+      // hasn't reported ready within 3.5s (blocked, slow, or broken), drop back to
+      // the plain site and reveal everything. Nothing here is persisted.
+      (function () {
+        var html = document.documentElement;
+        if (motion !== 'full' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        html.classList.add('motion');
+        setTimeout(function () {
+          if (window.__dokuMotionReady) return;
+          html.classList.remove('motion');
+          document.querySelectorAll('[data-reveal]').forEach(function (el) { el.classList.add('is-in'); });
+        }, 3500);
+      })();
+    </script>
+    {isItemPage && <link rel="expect" href="#item-frame" blocking="render" />}
+    <script is:inline>
+      // Match cut between an item card and its item page (cross-document View
+      // Transitions). Must be render-blocking so `pagereveal` is caught before the
+      // first frame. The clicked card's frame and the item page's big frame share
+      // one view-transition-name for the length of the cut, so the browser flies
+      // one into the other. Unsupported browsers ignore all of this.
+      (function () {
+        var name = function (sku) { return 'frame-' + String(sku).replace(/[^a-zA-Z0-9_-]/g, '_'); };
+        var skuOf = function (url) {
+          try { var m = new URL(url, location.href).pathname.match(/^\/item\/([^/]+)\/?$/); return m ? decodeURIComponent(m[1]) : null; }
+          catch (e) { return null; }
+        };
+        var here = skuOf(location.href);
+        var cardFrame = function (sku) {
+          var a = document.querySelector('a.item[href="/item/' + CSS.escape(sku) + '"]');
+          return a && a.querySelector('.frame');
+        };
+        var tag = function (el, sku, vt) {
+          if (!el || !vt) return;
+          el.style.viewTransitionName = name(sku);
+          vt.finished.finally(function () { el.style.viewTransitionName = ''; });
+        };
+        addEventListener('pageswap', function (e) {
+          if (!e.viewTransition || !e.activation) return;
+          var to = skuOf(e.activation.entry.url);
+          if (to && !here) tag(cardFrame(to), to, e.viewTransition);           // card → item
+          else if (here && !to) tag(document.getElementById('item-frame'), here, e.viewTransition); // item → list
+        });
+        addEventListener('pagereveal', function (e) {
+          if (!e.viewTransition) return;
+          var from = window.navigation && navigation.activation && navigation.activation.from;
+          var prev = from ? skuOf(from.url) : null;
+          if (here && !prev) {
+            // Landed on an item page from a list: wait for the DOM, then tag.
+            tag(document.getElementById('item-frame'), here, e.viewTransition);
+          } else if (!here && prev) {
+            tag(cardFrame(prev), prev, e.viewTransition);
+          }
+        });
+      })();
     </script>
     <script is:inline>
       // GA4 stub — defined but never loaded/configured until the visitor
@@ -68,7 +136,7 @@ const {
       rel="stylesheet"
     />
   </head>
-  <body>
+  <body data-motion={motion} class:list={[motion === 'calm' && 'calm']}>
     <Ambient />
     <Header />
     <main id="app">

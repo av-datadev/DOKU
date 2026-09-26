@@ -1,0 +1,183 @@
+/* Motion film (spec: docs/superpowers/specs/2026-09-26-scroll-motion-design.md).
+
+   Every hidden *initial* state below is scoped to `html.motion`, which Base.astro
+   sets only on full pages for visitors without reduced motion — and strips again
+   (revealing everything) if the scene module never reports ready. So no-JS,
+   reduced-motion and failure all see the plain, fully visible site. */
+
+/* ── Shared vitrine brackets (outside a .frame) ── */
+.brackets { position: absolute; inset: var(--b-inset, 0); pointer-events: none; z-index: 2; }
+.brackets > .corner { position: absolute; width: var(--b-size, 22px); height: var(--b-size, 22px); }
+.brackets > .corner.tl { top: 0; left: 0; border-top: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+.brackets > .corner.tr { top: 0; right: 0; border-top: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+.brackets > .corner.bl { bottom: 0; left: 0; border-bottom: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+.brackets > .corner.br { bottom: 0; right: 0; border-bottom: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+.m-only { display: none; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.motion .m-only { display: block; }
+
+/* Brackets start outside their frames and cut words run edge to edge; transforms
+   still count as scroll overflow, so clip sideways. `clip` (not `hidden`) makes
+   no scroll container, so sticky + pinning are unaffected. */
+.motion #app { overflow-x: clip; }
+
+/* ── Scene-owned elements: GSAP drives them, so no competing CSS transitions ── */
+.motion [data-reveal='frame'] { transition: none; }
+.motion .frame .corner,
+.motion .brackets > .corner { opacity: 0; }
+.motion .item:not(.m-in) > :not(.frame),
+.motion .archive-item:not(.m-in) > :not(.frame) { opacity: 0; }
+.motion .grid-filtered .item { animation: none; }
+.motion [data-lamp]:not(.m-split) { visibility: hidden; }
+.motion .frame img,
+.motion .frame .sketch-art { will-change: transform; }
+
+/* ── HOME · scene 0 hook + scene 1 hero ── */
+.hook { display: none; }
+.motion .hook {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  display: grid; place-items: center; overflow: hidden;
+}
+.hook-line {
+  position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+  background: var(--gold); transform: scaleX(0);
+}
+.hook-num {
+  display: flex; align-items: baseline;
+  font-family: 'Fraunces', serif; font-weight: 200; line-height: 0.8;
+  font-size: min(78svh, 70vw); color: var(--ivory); letter-spacing: -0.04em;
+}
+.hook-num .hook-one { display: inline-block; clip-path: inset(0 0 100% 0); }
+.hook-num .hook-slash { display: inline-block; font-style: italic; color: var(--gold); opacity: 0; }
+.hero .brackets { --b-inset: 28px; --b-size: 28px; }
+.hero-brand .ch { display: inline-block; }
+
+.motion .hero-brand,
+.motion .hero-tagline,
+.motion .hero-headline,
+.motion .hero-cta,
+.motion .hero-scroll { animation: none; opacity: 0; transform: none; }
+.motion .hero-headline {
+  position: absolute; left: 0; right: 0; top: 50%; margin: 0 !important;
+  translate: 0 -50%; z-index: 2; padding: 0 24px;
+}
+.motion .hero { background-color: var(--bg); }
+
+/* ── HOME · scene 2 kinetic cuts (replaces the ticker under .motion) ── */
+.cuts { display: none; }
+.motion .marquee { display: none; }
+.motion .cuts {
+  display: block; position: relative; height: 100svh; overflow: hidden;
+  background: var(--bg);
+}
+.cut-word {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+  font-family: 'Fraunces', serif; font-weight: 300; text-transform: uppercase;
+  font-size: clamp(44px, 11.5vw, 200px); line-height: 0.95; letter-spacing: -0.01em;
+  padding: 0 4vw; color: var(--ivory); visibility: hidden;
+}
+.cut-word.is-gold { background: var(--gold); color: var(--bg); }
+.cut-word .char { display: inline-block; }
+.cuts-count {
+  position: absolute; left: 32px; bottom: 28px; z-index: 2;
+  font-size: 10px; letter-spacing: 0.28em; color: var(--claimed); mix-blend-mode: difference;
+}
+
+/* ── HOME · scene 4 tracking shot ── */
+.motion .carousel { position: relative; }
+.carousel .track-exit { position: absolute; display: none; }
+.carousel .track-exit > .corner { opacity: 1; }
+
+/* ── HOME · scene 3 manifesto ── */
+.manifesto-frame { position: relative; max-width: 780px; margin: 0 auto; padding: 56px 48px; }
+.manifesto-frame .brackets { --b-size: 26px; }
+.manifesto .gold-word { transition: color .3s; }
+.motion .manifesto { min-height: 100svh; display: grid; place-items: center; }
+
+/* ── HOME · scene 7 final frame (rendered for everyone) ── */
+.finale {
+  min-height: 100svh; display: grid; place-items: center; text-align: center;
+  padding: 120px 24px; position: relative;
+}
+.finale-frame { position: relative; padding: 72px clamp(28px, 7vw, 96px) 64px; }
+.finale-frame .brackets { --b-size: 30px; }
+.finale-mark {
+  font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+  color: var(--gold); font-size: 15px; letter-spacing: 0.08em;
+}
+.finale h2 {
+  font-family: 'Fraunces', serif; font-weight: 200; margin: 18px 0 0;
+  font-size: clamp(54px, 9vw, 128px); line-height: 0.95; letter-spacing: -0.02em;
+}
+.finale .hero-cta { animation: none; opacity: 1; transform: none; }
+
+/* ── ARCHIVE · drained palette + signed epitaphs ── */
+.motion .drained { --gold: var(--claimed); }
+.motion body:has(.drained) #ambient-glow { opacity: 0.3; filter: saturate(0.2); }
+.motion .archive-item .epitaph::after {
+  content: ''; display: block; width: 32px; height: 1px; margin-top: 14px;
+  background: #B08D57; transform: scaleX(0); transform-origin: left;
+  transition: transform 0.9s var(--ease);
+}
+.motion .archive-item.m-signed .epitaph::after { transform: scaleX(1); }
+
+/* ── PROVENANCE · veil, flash, criteria ticks ── */
+.m-veil {
+  position: fixed; inset: 0; background: var(--bg); opacity: 0;
+  pointer-events: none; z-index: 40;
+}
+.motion .prov-pull { position: relative; z-index: 41; }
+.m-flash {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  background: var(--gold); color: var(--bg); visibility: hidden; pointer-events: none;
+  font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+  font-size: clamp(64px, 16vw, 260px); letter-spacing: -0.03em;
+}
+.motion .prov-chapter-no { transform-origin: 0 0; }
+.motion .prov-criteria li { position: relative; }
+
+/* ── CONFIRMATION · brackets lock around the order code (CSS only, calm) ── */
+.order-lock { position: relative; display: inline-block; padding: 14px 22px; }
+.order-lock .brackets { --b-size: 12px; }
+.order-lock .corner { animation: lock-in .5s var(--ease) .35s both; }
+.order-lock .corner.tl { --dx: -14px; --dy: -14px; }
+.order-lock .corner.tr { --dx: 14px; --dy: -14px; }
+.order-lock .corner.bl { --dx: -14px; --dy: 14px; }
+.order-lock .corner.br { --dx: 14px; --dy: 14px; }
+@keyframes lock-in { from { opacity: 0; translate: var(--dx) var(--dy); } }
+
+/* ── CALM pages · one short entrance, nothing else ── */
+.calm #app { animation: calm-in .3s var(--ease) both; }
+@keyframes calm-in { from { opacity: 0; translate: 0 8px; } }
+
+/* ── PAGE CUTS · cross-document View Transitions ──
+   The new page is revealed top→down beneath a moving 1px gold hairline: old and
+   new root snapshots are clipped with a 2px gap between them, and the line is
+   painted as the ::view-transition overlay's own background, keyframed in
+   lockstep (same duration + easing). One beat long. */
+@view-transition { navigation: auto; }
+#site-header { view-transition-name: site-header; }
+
+::view-transition {
+  background: linear-gradient(#B08D57, #B08D57) no-repeat 0 0 / 100% 1px;
+  animation: vt-line .625s cubic-bezier(.16, 1, .3, 1) both;
+}
+::view-transition-old(root) { animation: vt-old .625s cubic-bezier(.16, 1, .3, 1) both; }
+::view-transition-new(root) { animation: vt-new .625s cubic-bezier(.16, 1, .3, 1) both; }
+::view-transition-group(*) { animation-duration: .625s; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+@keyframes vt-line { from { background-position: 0 0%; } to { background-position: 0 100%; } }
+@keyframes vt-old { from { clip-path: inset(2px 0 0 0); } to { clip-path: inset(calc(100% + 2px) 0 0 0); } }
+@keyframes vt-new { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition { background: none; animation: none; }
+  ::view-transition-old(root) { animation: vt-fade-out .2s linear both; }
+  ::view-transition-new(root) { animation: vt-fade-in .2s linear both; }
+  ::view-transition-group(*) { animation-duration: .2s; }
+  .calm #app, .order-lock .corner { animation: none; }
+}
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-fade-in { from { opacity: 0; } }

@@ -27,15 +27,20 @@ const marquee = [...MARQUEE_WORDS, ...MARQUEE_WORDS];
 const farewell = Astro.url.searchParams.get('farewell') === '1';
 ---
 
-<Base>
+<Base motion="full">
   {farewell && (
     <div role="status" style="border-bottom:1px solid var(--gold); background:var(--bg-card); color:var(--ivory); text-align:center; padding:12px 18px; font-size:.92rem; letter-spacing:.02em;">
       Your account is closed — what you bought remains yours.
     </div>
   )}
-  <section class="hero">
+  <section class="hero" data-scene="hero">
+    <div class="hook" aria-hidden="true">
+      <div class="hook-line"></div>
+      <div class="hook-num"><span class="hook-one">1</span><span class="hook-slash">/1</span></div>
+    </div>
+    <div class="brackets m-only" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
     <div class="hero-inner">
-      <div class="hero-brand">DOKU</div>
+      <div class="hero-brand"><span class="sr-only">DOKU</span>{['D', 'O', 'K', 'U'].map((c) => <span class:list={['ch', { 'ch-o': c === 'O' }]} aria-hidden="true">{c}</span>)}</div>
       <div class="hero-tagline">Found. Not made.</div>
       <h1 class="hero-headline" style="margin-top:36px;">Only one.<br /><em>So are you.</em></h1>
       <a href="/collection" class="hero-cta" data-cursor="Explore"><span>Explore the collection</span></a>
@@ -58,8 +63,19 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
     </div>
   </div>
 
-  <div class="manifesto">
-    <p>"We do not manufacture. We do not commission. We go looking — and when we find the one made in a way that will not repeat, we bring it back exactly as it was."</p>
+  <!-- Scene 2 — the ticker's words as full-screen hard cuts (motion only; the
+       marquee above returns whenever motion is off). -->
+  <section class="cuts" data-scene="cuts" aria-hidden="true">
+    {MARQUEE_WORDS.map((word, i) => (
+      <div class:list={['cut-word', { 'is-gold': i % 2 === 1 && i < MARQUEE_WORDS.length - 1 }]}><span class="cut-text">{word}</span></div>
+    ))}
+  </section>
+
+  <div class="manifesto" data-scene="manifesto">
+    <div class="manifesto-frame">
+      <div class="brackets m-only" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+      <p data-lamp>"We do not manufacture. We do not commission. We <span class="gold-word">go looking</span> — and when we find the one made in a way that <span class="gold-word">will not repeat</span>, we bring it back exactly as it was."</p>
+    </div>
   </div>
 
   {available.length > 0 && (
@@ -69,7 +85,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
         <h2 class="serif">Available now</h2>
         <p>Every piece below exists once — same as the people who keep them. Once it's gone, this page forgets it was ever here.</p>
       </section>
-      <div class="carousel wrap" style="padding:0; margin-bottom:100px;">
+      <div class="carousel wrap" data-scene="track" style="padding:0; margin-bottom:100px;">
         <div class="carousel-track">
           {available.map((p) => <ItemCard product={p} held={held.has(p.sku)} currency={currency} rates={rates} />)}
         </div>
@@ -87,14 +103,14 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
         <h2 class="serif">Coming soon</h2>
         <p>Directions we're chasing. Not yet found, not yet priced.</p>
       </section>
-      <div class="grid wrap" style="padding:0; margin-bottom:100px;">
+      <div class="grid wrap" data-scene="soon" style="padding:0; margin-bottom:100px;">
         {comingSoon.map((p) => <ItemCard product={p} currency={currency} rates={rates} />)}
       </div>
     </>
   )}
 
   {claimed.length > 0 && (
-    <>
+    <div data-scene="archive">
       <section class="section-head" data-reveal="line">
         <div class="eyebrow">No longer available</div>
         <h2 class="serif">The archive</h2>
@@ -103,6 +119,22 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
       <div class="archive-grid wrap" style="padding:0; margin-bottom:100px;">
         {claimed.slice(0, 4).map((p) => <ArchiveCard product={p} />)}
       </div>
-    </>
+    </div>
   )}
+
+  <!-- Scene 7 — the final frame. Rendered for everyone; with motion on, the
+       brackets lock onto it on a single hit. -->
+  <section class="finale" data-scene="finale">
+    <div class="finale-frame">
+      <div class="brackets" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+      <div class="finale-mark">1/1</div>
+      <h2>Only one.</h2>
+      <a href="/collection" class="hero-cta" data-cursor="Explore"><span>Explore the collection</span></a>
+    </div>
+  </section>
 </Base>
+
+<script>
+  import { initHome } from '../motion/scenes/home';
+  initHome();
+</script>
