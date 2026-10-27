@@ -24,7 +24,7 @@ export interface Product {
 // migration. NEVER add an item DOKU doesn't actually own (Hard rule 1).
 export const FALLBACK_PRODUCTS: Product[] = [
   {
-    sku: '014', title: 'The Kyoto lacquer box', origin: 'Kyoto, Japan', year: '2026',
+    sku: '014', title: 'The koi lacquer box', origin: 'Kyoto, Japan', year: '2026',
     price: 1840, status: 'available',
     story: [
       'Found in a closing workshop on the outskirts of Kyoto, this box was hand-lacquered using a technique its maker never taught to an apprentice. There will be no second piece made this way.',
@@ -42,6 +42,11 @@ const DEFAULT_IMAGES = new Set(['003', '007', '009', '012', '014', '015', '016',
 
 const withDefaultImage = (p: Product): Product =>
   p.image || !DEFAULT_IMAGES.has(p.sku) ? p : { ...p, image: `/products/${p.sku}.jpg` };
+
+/** The photo for the item page's ivory mat: a default photo trimmed to the
+ *  object (scripts/trim-product-photos.py); any other image as it is. */
+export const matImage = (p: Product): string | null =>
+  p.image === `/products/${p.sku}.jpg` ? `/products/mat/${p.sku}.jpg` : p.image;
 
 // Server-side fetch used by SSR pages. RLS allows anon SELECT on products.
 export async function fetchProducts(): Promise<Product[]> {

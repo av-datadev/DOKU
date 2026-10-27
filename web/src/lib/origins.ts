@@ -27,5 +27,7 @@ const HAS_MAP = new Set<string>(rendered);
 
 export const originFor = (sku: string): Origin | null => (HAS_MAP.has(sku) && ORIGINS[sku]) || null;
 
-export const formatCoords = (o: Origin): string =>
-  `${Math.abs(o.lat).toFixed(4)}° ${o.lat >= 0 ? 'N' : 'S'} / ${Math.abs(o.lon).toFixed(4)}° ${o.lon >= 0 ? 'E' : 'W'}`;
+/** "Oslo, Oslo, Norway" → "Norway": the region without parts repeating the city. */
+export const regionOf = (o: Origin): string =>
+  o.region.split(', ').filter((part) => !part.startsWith(o.city)).join(', ');
+

@@ -1,0 +1,130 @@
+---
+import type { Product } from '../lib/products';
+import type { Origin } from '../lib/origins';
+import { matImage } from '../lib/products';
+import Frame from './Frame.astro';
+
+// The item page's opening, for pieces whose city has a rendered map: the
+// object's city as the backdrop, a loose pen loop around the market, and the
+// piece on an ivory mat with its price and action (the "buy" slot).
+//
+// This markup IS the final frame — what no-JS and reduced-motion visitors
+// see. On .motion pages motion/scenes/item.ts turns it into a pinned scroll
+// film: the name alone → the city opens out → the loop draws round the market
+// → the piece rises out of the circle → price and action.
+//
+// The market is named, never claimed as where the piece was bought or found.
+// The map is always centred on the market (scripts/build-origin-maps.mjs), so
+// a loop drawn at the centre always surrounds it.
+interface Props {
+  product: Product;
+  origin: Origin;
+  statusLabel: string;
+  faded?: boolean;
+}
+const { product: p, origin: o, statusLabel, faded = false } = Astro.props;
+const photo = matImage(p);
+---
+
+<section class="film" data-film data-status={p.status}>
+  <div class="film-map" aria-hidden="true">
+    <img src={`/origins/${p.sku}.svg`} alt="" width="600" height="800" />
+  </div>
+  <div class="film-veil" aria-hidden="true"></div>
+  <svg class="film-ring" viewBox="0 0 200 200" aria-hidden="true">
+    <!-- a loose loop, left open where the pen started: an area, not an address -->
+    <path class="film-loop" d="M70 112 C 62 50, 150 40, 166 96 C 180 146, 128 178, 90 166 C 50 154, 40 114, 66 86 C 80 72, 98 66, 116 68" />
+  </svg>
+  <div class="film-market" aria-hidden="true">{o.market}</div>
+
+  <div class="film-stage">
+    <div class="film-head">
+      <div class="film-status">N° {p.sku} · {statusLabel}</div>
+      <h1 class="film-title serif">{p.title}</h1>
+    </div>
+    <div class="film-piece">
+      {photo ? (
+        <figure id="item-frame" class:list={['film-mat', { 'film-mat-faded': faded }]}>
+          <div class="film-mat-window"><img src={photo} alt={p.title} /></div>
+        </figure>
+      ) : (
+        <Frame id="item-frame" product={p} />
+      )}
+    </div>
+    <div class="film-buy"><slot name="buy" /></div>
+  </div>
+
+  <div class="film-place">
+    <span class="film-city serif">{o.city.toUpperCase()}</span>
+    <span class="film-rule"></span>
+    <span class="film-market-name">{o.market}</span>
+  </div>
+</section>
+
+<style>
+  .film {
+    --ring: clamp(240px, 34vw, 420px);
+    position: relative; overflow: hidden;
+    min-height: calc(100svh - 76px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px 24px 44px;
+  }
+  .film-map { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .film-map img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .55; }
+  .film-veil {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(ellipse 75% 70% at 50% 50%, transparent 35%, var(--bg) 95%),
+      linear-gradient(to bottom, transparent 70%, var(--bg));
+  }
+  .film-ring {
+    position: absolute; left: 50%; top: 50%; width: var(--ring); height: var(--ring);
+    transform: translate(-50%, -50%); overflow: visible; opacity: .35; pointer-events: none;
+  }
+  .film-loop { fill: none; stroke: var(--gold); stroke-width: 1.1; stroke-linecap: round; }
+  .film-market {
+    position: absolute; left: 50%; top: calc(50% - var(--ring) / 2 - 34px); transform: translateX(-50%);
+    font-size: 11px; letter-spacing: .24em; text-transform: uppercase; white-space: nowrap;
+    color: var(--ivory); text-shadow: 0 0 10px var(--bg), 0 0 20px var(--bg);
+    opacity: 0; pointer-events: none;
+  }
+
+  .film-stage { position: relative; z-index: 2; width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .film-status { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+  [data-status='claimed'] .film-status, [data-status='reserved'] .film-status { color: var(--claimed); }
+  .film-title { font-weight: 300; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.08; margin: 8px 0 22px; }
+
+  .film-mat {
+    margin: 0; background: var(--ivory); padding: 16px;
+    outline: 1px solid var(--gold); outline-offset: 5px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .8);
+  }
+  .film-mat-window { position: relative; overflow: hidden; }
+  .film-mat img {
+    display: block; width: auto; height: auto;
+    max-width: min(340px, 72vw); max-height: min(320px, 33svh);
+    mix-blend-mode: multiply;
+  }
+  .film-mat-faded img { filter: grayscale(1) brightness(.85); }
+  .film-piece :global(.frame) { width: min(320px, 72vw); aspect-ratio: 4 / 5; }
+
+  .film-buy { width: 100%; max-width: 380px; margin-top: 24px; text-align: left; }
+  .film-buy :global(.price-row) { margin-bottom: 16px; padding: 12px 0; }
+  .film-buy :global(.btn-gold) { padding: 16px; margin-bottom: 10px; }
+  .film-buy :global(.claim-sub) { margin-bottom: 0; }
+  .film-buy :global(.wishlist-row) { text-align: center; }
+
+  .film-place {
+    position: absolute; z-index: 2; right: 48px; bottom: 36px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right;
+  }
+  .film-city { font-size: 13px; letter-spacing: .4em; color: var(--gold); margin-right: -.4em; }
+  .film-rule { width: 70px; height: 1px; background: var(--gold); opacity: .7; }
+  .film-market-name { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ivory); }
+
+  @media (max-width: 900px) {
+    .film { padding: 24px 20px 92px; }
+    .film-mat img { max-height: min(300px, 30svh); }
+    .film-place { right: 20px; bottom: 22px; }
+  }
+</style>

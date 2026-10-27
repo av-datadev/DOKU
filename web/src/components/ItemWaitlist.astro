@@ -1,0 +1,28 @@
+---
+import type { Product } from '../lib/products';
+import { WEB3FORMS_KEY } from '../lib/forms';
+
+// "Notify me if it frees up" for reserved/claimed pieces → Web3Forms (email
+// only, no DB row). The submit handler lives in pages/item/[sku].astro.
+interface Props {
+  product: Product;
+}
+const { product: p } = Astro.props;
+---
+
+<div class="waitlist-block">
+  <form id="waitlist-form" novalidate>
+    <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
+    <input type="hidden" name="subject" value={`DOKU — Waitlist: ${p.title}`} />
+    <input type="hidden" name="from_name" value="DOKU Waitlist Form" />
+    <input type="hidden" name="sku" value={p.sku} />
+    <input type="hidden" name="item" value={p.title} />
+    <div class="form-group">
+      <label for="waitlist-email">Notify me if it frees up</label>
+      <input id="waitlist-email" name="email" type="email" required placeholder="you@email.com" />
+    </div>
+    <p class="fine-print">Rare, but it happens. Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
+    <button class="btn-ghost" type="submit"><span>Join the waitlist</span></button>
+  </form>
+  <div id="waitlist-result" class="claim-sub" style="margin-top:14px;"></div>
+</div>

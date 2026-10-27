@@ -28,7 +28,7 @@ const isSoon = p.status === 'coming-soon';
   <Frame product={p} />
   <h3 class="serif">{p.title}</h3>
   <div class="item-origin">
-    {isSoon ? 'Direction confirmed — object pending' : `Found in ${p.origin} — 1 of 1`}
+    {isSoon ? 'Direction confirmed — object pending' : `${p.origin} — 1 of 1`}
   </div>
   <div class="item-bottom">
     <span class="item-price serif" style={isSoon ? 'color:var(--muted);' : ''} data-usd={isSoon ? undefined : p.price ?? undefined}>

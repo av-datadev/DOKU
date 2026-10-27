@@ -191,3 +191,8 @@
   mix-blend-mode: soft-light; transform: translateX(-70%);
 }
 .motion .frame-faded .frame-light { opacity: .45; }
+
+/* ── ITEM · the map film: hidden until filmScene() places them ── */
+.motion [data-film] .film-head,
+.motion [data-film] .film-buy,
+.motion [data-film] .film-place { opacity: 0; }

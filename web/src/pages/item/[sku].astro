@@ -2,14 +2,18 @@
 import Base from '../../layouts/Base.astro';
 import Frame from '../../components/Frame.astro';
 import ItemCard from '../../components/ItemCard.astro';
-import OriginMap from '../../components/OriginMap.astro';
+import ItemFilm from '../../components/ItemFilm.astro';
+import ItemBuy from '../../components/ItemBuy.astro';
+import ItemWaitlist from '../../components/ItemWaitlist.astro';
 import { fetchProducts, fetchProduct } from '../../lib/products';
-import { WEB3FORMS_KEY } from '../../lib/forms';
+import { originFor, regionOf } from '../../lib/origins';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
 import { serverEnv } from '../../lib/env';
-import { formatMoney, fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
+import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
 
-// Full object page — SSR per sku, real indexable URL. Port of viewProduct().
+// Full object page — SSR per sku, real indexable URL. Pieces whose city has a
+// rendered map open with the map film (ItemFilm); the rest keep the two-column
+// frame + info layout until their map exists.
 const { sku } = Astro.params;
 const product = sku ? await fetchProduct(sku) : null;
 if (!product) {
@@ -33,9 +37,14 @@ const statusLabel = isAvailable
       ? 'Held — pending confirmation'
       : 'Claimed — no longer available';
 
-const originLine = isComingSoon
-  ? "We haven't found this one yet."
-  : `Found in ${p.origin}.${p.year ? ` Sourced by the DOKU team, ${p.year}.` : ''}`;
+// The place is said once. With a map, the film's corner caption says it; without
+// one, this line does. The "Origin" spec row is dropped when it only repeats it.
+const origin = originFor(p.sku);
+const city = (p.origin ?? '').split(',')[0].trim();
+const originLine = isComingSoon ? "We haven't found this one yet." : p.origin;
+const specs = Object.entries(p.specs ?? {}).filter(
+  ([k, v]) => !(k.toLowerCase() === 'origin' && city && v.includes(city)),
+);
 
 const allProducts = await fetchProducts();
 const related = allProducts.filter((x) => x.status === 'available' && x.sku !== p.sku).slice(0, 3);
@@ -57,146 +66,93 @@ if (signedIn && canWishlist) {
     .from('wishlists').select('sku').eq('sku', p.sku).maybeSingle();
   isWishlisted = !!data;
 }
+const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
 ---
 
 <Base motion="full" title={`${p.title} — DOKU`} description={p.story?.[0] ?? p.teaser ?? undefined}>
-  <div class="breadcrumb"><a href="/collection">The Collection</a> &nbsp;/&nbsp; N° {p.sku}</div>
+  {origin ? (
+    <>
+      <ItemFilm product={p} origin={origin} statusLabel={statusLabel} faded={!isAvailable && !isComingSoon}>
+        <ItemBuy slot="buy" {...buy} />
+      </ItemFilm>
 
-  <div class="product wrap" data-status={p.status}>
-    <Frame id="item-frame" product={p} faded={!isAvailable && !isComingSoon} />
-
-    <div class="product-info">
-      <div class="seal-row">
-        <div class="seal"><span class="seal-no serif">{p.sku}</span></div>
-        <span class:list={['seal-status', { 'is-claimed': !isAvailable }]}>{statusLabel}</span>
-      </div>
-      <h1 class="serif">{p.title}</h1>
-      <div class="origin-line">{originLine}</div>
-
-      {isAvailable && (
-        <>
-          <div class="price-row">
-            <span class="price serif" data-usd={p.price ?? undefined}>{formatMoney(p.price, currency, rates)}</span>
-            <span class="price-note">No reproductions</span>
-          </div>
-          <form id="hold-form" method="POST" action="/api/cart">
-            <input type="hidden" name="action" value="hold" />
-            <input type="hidden" name="sku" value={p.sku} />
-            <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
-            <button class="btn-gold" type="submit" id="hold-btn" disabled={inCart} data-cursor="Hold">
-              <span id="hold-btn-label">{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
-            </button>
-          </form>
-          <div class="claim-sub" id="hold-sub">
-            {inCart ? 'Review it in your cart to confirm the claim.' : 'Held until checkout. Nothing closes until you confirm.'}
-          </div>
-        </>
-      )}
-
-      {isComingSoon && (
-        <>
-          <div class="price-row">
-            <span class="price serif" style="color:var(--muted);">Not yet priced</span>
-            <span class="price-note">Coming soon</span>
-          </div>
-          <form id="notify-form" novalidate>
-            <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
-            <input type="hidden" name="subject" value={`DOKU — Notify Request: ${p.title}`} />
-            <input type="hidden" name="from_name" value="DOKU Notify Form" />
-            <input type="hidden" name="sku" value={p.sku} />
-            <input type="hidden" name="item" value={p.title} />
-            <div class="form-group">
-              <label for="notify-email">Notify me when it's found</label>
-              <input id="notify-email" name="email" type="email" required placeholder="you@email.com" />
+      <section class="item-details wrap" data-details>
+        <div class="details-story">
+          {p.story && p.story.length > 0 && (
+            <div class="story-block">
+              <div class="eyebrow">The story</div>
+              {p.story.map((para) => <p>{para}</p>)}
             </div>
-            <p class="fine-print">Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
-            <button class="btn-gold" type="submit" data-cursor="Notify"><span>Notify me</span></button>
-          </form>
-          <div id="notify-result" class="claim-sub" style="margin-top:14px;"></div>
-        </>
-      )}
-
-      {isReserved && (
-        <>
-          <div class="price-row">
-            <span class="price serif" style="color:var(--claimed);">Held</span>
-            <span class="price-note">Pending confirmation</span>
-          </div>
-          <button class="btn-ghost" disabled>This DOKU is spoken for</button>
-          <div class="claim-sub">Someone has claimed this. We're finishing the details on our end.</div>
-        </>
-      )}
-
-      {!isAvailable && !isComingSoon && !isReserved && (
-        <>
-          <div class="price-row">
-            <span class="price serif" style="color:var(--claimed);">Claimed</span>
-            <span class="price-note">No reproductions</span>
-          </div>
-          <button class="btn-ghost" disabled>This DOKU is gone</button>
-          <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
-        </>
-      )}
-
-      {canWishlist && (
-        <div class="wishlist-row">
-          {signedIn ? (
-            <form id="wishlist-form" method="POST" action="/api/account/wishlist" data-watching={isWishlisted ? '1' : '0'}>
-              <input type="hidden" name="action" value={isWishlisted ? 'remove' : 'add'} />
-              <input type="hidden" name="sku" value={p.sku} />
-              <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
-              <button class="btn-wishlist" type="submit" id="wishlist-btn">
-                <span id="wishlist-label">{isWishlisted ? 'Watching — remove' : 'Keep an eye on this'}</span>
-              </button>
-            </form>
-          ) : (
-            <a class="btn-wishlist" href="/login">Sign in to keep a list</a>
+          )}
+          {p.teaser && (
+            <div class="story-block">
+              <div class="eyebrow">What we're chasing</div>
+              <p>{p.teaser}</p>
+            </div>
           )}
         </div>
-      )}
-
-      {canWaitlist && (
-        <div class="waitlist-block">
-          <form id="waitlist-form" novalidate>
-            <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
-            <input type="hidden" name="subject" value={`DOKU — Waitlist: ${p.title}`} />
-            <input type="hidden" name="from_name" value="DOKU Waitlist Form" />
-            <input type="hidden" name="sku" value={p.sku} />
-            <input type="hidden" name="item" value={p.title} />
-            <div class="form-group">
-              <label for="waitlist-email">Notify me if it frees up</label>
-              <input id="waitlist-email" name="email" type="email" required placeholder="you@email.com" />
+        <div class="details-side">
+          {specs.length > 0 && (
+            <div class="specs">
+              {specs.map(([k, v]) => <div class="spec-row"><span>{k}</span><span>{v}</span></div>)}
             </div>
-            <p class="fine-print">Rare, but it happens. Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
-            <button class="btn-ghost" type="submit"><span>Join the waitlist</span></button>
-          </form>
-          <div id="waitlist-result" class="claim-sub" style="margin-top:14px;"></div>
+          )}
+          {canWaitlist && <ItemWaitlist product={p} />}
         </div>
-      )}
+        <div class="details-craft">
+          <div class="details-city">
+            <div class="eyebrow">{isComingSoon ? "Where we're looking" : 'The city'}</div>
+            <h2 class="serif">{origin.city}, <em>{regionOf(origin)}</em></h2>
+            <p>{origin.craft}</p>
+          </div>
+          <div class="details-where">
+            <span class="details-where-label">Where this craft still lives</span>
+            <span class="details-where-name serif">{origin.market}</span>
+            <span class="details-where-note">{origin.marketNote}</span>
+            <p class="details-credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></p>
+          </div>
+        </div>
+      </section>
+    </>
+  ) : (
+    <>
+      <div class="breadcrumb"><a href="/collection">The Collection</a> &nbsp;/&nbsp; N° {p.sku}</div>
 
-      {p.story && p.story.length > 0 && (
-        <div class="story-block">
-          <div class="eyebrow">The story</div>
-          {p.story.map((para) => <p>{para}</p>)}
-        </div>
-      )}
-      {p.teaser && (
-        <div class="story-block">
-          <div class="eyebrow">What we're chasing</div>
-          <p>{p.teaser}</p>
-        </div>
-      )}
-      {p.specs && Object.keys(p.specs).length > 0 && (
-        <div class="specs">
-          {Object.entries(p.specs).map(([k, v]) => (
-            <div class="spec-row"><span>{k}</span><span>{v}</span></div>
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
+      <div class="product wrap" data-status={p.status}>
+        <Frame id="item-frame" product={p} faded={!isAvailable && !isComingSoon} />
 
-  <OriginMap sku={p.sku} comingSoon={isComingSoon} />
+        <div class="product-info">
+          <div class="seal-row">
+            <div class="seal"><span class="seal-no serif">{p.sku}</span></div>
+            <span class:list={['seal-status', { 'is-claimed': !isAvailable }]}>{statusLabel}</span>
+          </div>
+          <h1 class="serif">{p.title}</h1>
+          {originLine && <div class="origin-line">{originLine}</div>}
+
+          <ItemBuy {...buy} />
+          {canWaitlist && <ItemWaitlist product={p} />}
+
+          {p.story && p.story.length > 0 && (
+            <div class="story-block">
+              <div class="eyebrow">The story</div>
+              {p.story.map((para) => <p>{para}</p>)}
+            </div>
+          )}
+          {p.teaser && (
+            <div class="story-block">
+              <div class="eyebrow">What we're chasing</div>
+              <p>{p.teaser}</p>
+            </div>
+          )}
+          {specs.length > 0 && (
+            <div class="specs">
+              {specs.map(([k, v]) => <div class="spec-row"><span>{k}</span><span>{v}</span></div>)}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )}
 
   {related.length > 0 && (
     <>
@@ -336,4 +292,33 @@ if (signedIn && canWishlist) {
   }
   .btn-wishlist:hover { color: var(--gold); }
   .waitlist-block { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--hairline); }
+
+  /* below the map film: the story, the ledger, then the city and its market */
+  .item-details {
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px 90px;
+    padding: 100px 48px 120px; border-top: 1px solid var(--hairline);
+  }
+  .details-story .story-block p { margin-top: 0; }
+  .details-story .eyebrow { margin-bottom: 18px; }
+  .details-side .specs { border-top: none; padding-top: 0; }
+  .details-craft {
+    grid-column: 1 / -1; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px 90px;
+    margin-top: 50px; padding-top: 60px; border-top: 1px solid var(--hairline); align-items: end;
+  }
+  .details-city h2 { font-weight: 300; font-size: 34px; line-height: 1.15; margin: 14px 0 20px; }
+  .details-city h2 em { color: var(--muted); }
+  .details-city p { font-size: 15px; line-height: 1.9; }
+  .details-where { display: flex; flex-direction: column; gap: 6px; padding: 22px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+  .details-where-label { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); }
+  .details-where-name { font-size: 22px; }
+  .details-where-note { font-size: 13px; line-height: 1.7; color: var(--muted); }
+  .details-credit { font-size: 11px; color: var(--claimed); margin-top: 14px; }
+  .details-credit a { color: var(--claimed); }
+  .details-credit a:hover { color: var(--gold); }
+
+  @media (max-width: 900px) {
+    .item-details, .details-craft { grid-template-columns: 1fr; padding-left: 24px; padding-right: 24px; }
+    .item-details { padding-top: 70px; padding-bottom: 90px; }
+    .details-craft { padding-left: 0; padding-right: 0; }
+  }
 </style>

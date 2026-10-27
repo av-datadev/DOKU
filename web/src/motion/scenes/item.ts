@@ -4,6 +4,7 @@
 // clickable the whole time — only opacity is animated); the sticky frame pushes
 // in as you read; story paragraphs light up; specs enter as a ledger.
 // Reserved/claimed pieces grade down to --claimed as they land.
+// Pieces whose city has a map open with the map film instead (filmScene).
 
 import {
   gsap,
@@ -43,39 +44,108 @@ function livingPhoto(frame: HTMLElement, img: HTMLImageElement) {
   });
 }
 
-/** The Origin chapter: the street map rises out of the dark, the loop is drawn
- *  around the market like a pen mark, then the market's name and the caption. */
-function originScene(origin: HTMLElement) {
-  const map = own(origin.querySelector<HTMLImageElement>('.origin-map img'));
-  const loop = origin.querySelector<SVGPathElement>('.origin-loop');
-  const leader = origin.querySelector<SVGPathElement>('.origin-leader');
-  const label = origin.querySelector('.origin-market');
-  const caption = origin.querySelector('.origin-caption');
-  const text = origin.querySelector('.origin-text');
-  if (!map || !loop || !leader) return;
-  const loopLen = loop.getTotalLength();
-  const leaderLen = leader.getTotalLength();
-
-  const tl = gsap.timeline({
-    defaults: { ease: 'none' },
-    scrollTrigger: { trigger: origin, start: 'top 85%', end: 'center 50%', scrub: 0.6 },
-  });
-  tl.fromTo(map, { opacity: 0, scale: 1.08, filter: 'blur(3px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 1 }, 0)
-    .fromTo(loop, { strokeDasharray: loopLen, strokeDashoffset: loopLen }, { strokeDashoffset: 0, duration: 0.6 }, 0.7)
-    .fromTo(leader, { strokeDasharray: leaderLen, strokeDashoffset: leaderLen }, { strokeDashoffset: 0, duration: 0.2 }, 1.2)
-    .fromTo(label, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 1.35)
-    .fromTo(caption, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 0.9);
-  if (text) {
-    own(text);
-    gsap.fromTo(text.children, { opacity: 0, y: 12 }, {
-      opacity: 1, y: 0, duration: 0.8, stagger: EIGHTH / 2,
-      scrollTrigger: { trigger: text, start: 'top 80%', once: true },
+/** Story paragraphs light up as they're read; spec rows enter as a ledger. */
+function readingScene(root: ParentNode) {
+  root.querySelectorAll('.story-block').forEach((block) => gsap.set(block, { opacity: 1 }));
+  root.querySelectorAll('.story-block p').forEach((p) =>
+    readingLamp(p, { start: 'top 88%', end: 'bottom 60%' }),
+  );
+  const rows = Array.from(root.querySelectorAll('.spec-row'));
+  if (rows.length) {
+    gsap.set(rows, { opacity: 0 });
+    ScrollTrigger.batch(rows, {
+      start: 'top 92%',
+      once: true,
+      onEnter: (els) => gsap.fromTo(els, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.6, stagger: EIGHTH / 2 }),
     });
   }
 }
 
+/** The map film (components/ItemFilm.astro). The markup is the final frame;
+ *  this pins it and plays it in from the top: the name alone over a close,
+ *  dim city → the city opens out → the pen loops the market → the piece rises
+ *  out of the circle → price and action. Native scroll throughout (pin only).
+ *  If the frame is taller than the screen it can't pin, so it plays once. */
+async function filmScene(film: HTMLElement) {
+  const map = film.querySelector<HTMLElement>('.film-map');
+  const ring = film.querySelector<SVGElement>('.film-ring');
+  const loop = film.querySelector<SVGPathElement>('.film-loop');
+  const market = film.querySelector<HTMLElement>('.film-market');
+  const head = film.querySelector<HTMLElement>('.film-head');
+  const piece = film.querySelector<HTMLElement>('.film-piece');
+  const buy = film.querySelector<HTMLElement>('.film-buy');
+  const place = film.querySelector<HTMLElement>('.film-place');
+  if (!map || !ring || !loop || !head || !piece || !buy || !place) return;
+  const frame = document.getElementById('item-frame');
+  [map, head, piece, buy, place, frame].forEach((el) => own(el));
+  const photo = frame?.querySelector('img');
+  if (frame && photo) livingPhoto(frame.querySelector<HTMLElement>('.film-mat-window') ?? frame, photo);
+
+  const len = loop.getTotalLength();
+  gsap.set(loop, { strokeDasharray: len, strokeDashoffset: len });
+
+  // Arrived by match cut: the browser already flew the piece into place, so
+  // skip the film — draw the loop and bring in the rest round it.
+  if (frame?.style.viewTransitionName) {
+    gsap.to(loop, { strokeDashoffset: 0, duration: 1.4, ease: 'power2.inOut', delay: 0.3 });
+    gsap.fromTo([head, buy, place], { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7, stagger: EIGHTH / 2, delay: 0.2 });
+    return;
+  }
+
+  await fontsReady();
+  // Where the name and the piece sit in the final frame, relative to the
+  // centre of the film (the market, and the loop round it).
+  const mid = (el: Element) => { const b = el.getBoundingClientRect(); return b.top + b.height / 2; };
+  const centre = mid(film);
+  gsap.set(map, { scale: 2.4, opacity: 0.35 });
+  gsap.set(ring, { opacity: 1 });
+  gsap.set(head, { opacity: 1, y: centre - mid(head), scale: 1.45 });
+  gsap.set(piece, { opacity: 0, y: centre - mid(piece), scale: 0.04 });
+  gsap.set(buy, { opacity: 0, y: 14 });
+  gsap.set(place, { opacity: 0 });
+
+  const phone = window.innerWidth < 768;
+  const header = document.querySelector('header')?.offsetHeight ?? 0;
+  const fits = film.offsetHeight <= window.innerHeight - header + 4;
+  const tl = gsap.timeline({
+    defaults: { ease: 'none' },
+    scrollTrigger: fits
+      ? { trigger: film, start: `top ${header}px`, end: `+=${window.innerHeight * (phone ? 1.4 : 2.2)}`, scrub: 0.8, pin: true, anticipatePin: 1 }
+      : undefined,
+  });
+  tl.to(head, { y: 0, scale: 1, duration: 1.2, ease: 'power2.inOut' }, 0)
+    .to(map, { scale: 1, opacity: 1, duration: 1.6, ease: 'power2.out' }, 0.1)
+    .to(loop, { strokeDashoffset: 0, duration: 0.9 }, 1.3)
+    .to(market, { opacity: 1, duration: 0.35 }, 1.8)
+    .to(place, { opacity: 1, duration: 0.4 }, 1.9)
+    .to(market, { opacity: 0, duration: 0.3 }, 2.5)
+    .to(piece, { y: 0, scale: 1, opacity: 1, duration: 1, ease: 'power3.out' }, 2.5)
+    .to(ring, { opacity: 0.35, duration: 1 }, 2.5)
+    .to(buy, { opacity: 1, y: 0, duration: 0.5 }, 3.3)
+    .to({}, { duration: 0.5 });
+  if (!fits) tl.timeScale(1.6);
+}
+
 export async function initItem(): Promise<void> {
   if (!motionOn()) return;
+
+  // ── pieces with a city map: the map film, then the details below it ──
+  const film = document.querySelector<HTMLElement>('[data-film]');
+  if (film) {
+    await filmScene(film);
+    const details = document.querySelector<HTMLElement>('[data-details]');
+    if (details) {
+      readingScene(details);
+      const craft = details.querySelector('.details-craft');
+      if (craft) gsap.fromTo(craft.children, { opacity: 0, y: 12 }, {
+        opacity: 1, y: 0, duration: 0.8, stagger: EIGHTH / 2,
+        scrollTrigger: { trigger: craft, start: 'top 85%', once: true },
+      });
+    }
+    document.querySelectorAll('.grid .frame').forEach(frameParallax);
+    return ready();
+  }
+
   const product = document.querySelector<HTMLElement>('.product');
   const frame = document.getElementById('item-frame');
   const info = product?.querySelector<HTMLElement>('.product-info');
@@ -135,23 +205,7 @@ export async function initItem(): Promise<void> {
   if (rest.length) tl.fromTo(rest, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7, stagger: EIGHTH / 2 }, EIGHTH * 4);
 
   // ── reading: story lamp + spec ledger ──
-  reading.forEach((block) => gsap.set(block, { opacity: 1 }));
-  info.querySelectorAll('.story-block p').forEach((p) =>
-    readingLamp(p, { start: 'top 88%', end: 'bottom 60%' }),
-  );
-  const rows = Array.from(info.querySelectorAll('.spec-row'));
-  if (rows.length) {
-    gsap.set(rows, { opacity: 0 });
-    ScrollTrigger.batch(rows, {
-      start: 'top 92%',
-      once: true,
-      onEnter: (els) => gsap.fromTo(els, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.6, stagger: EIGHTH / 2 }),
-    });
-  }
-
-  // ── origin: the streets surface, then the pen loops the market ──
-  const originChapter = document.querySelector<HTMLElement>('[data-origin]');
-  if (originChapter) originScene(originChapter);
+  readingScene(info);
 
   // ── "You may not see these again" — same grid treatment as /collection ──
   document.querySelectorAll('.grid .frame').forEach(frameParallax);

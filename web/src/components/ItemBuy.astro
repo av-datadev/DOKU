@@ -1,0 +1,106 @@
+---
+import type { Product } from '../lib/products';
+import { WEB3FORMS_KEY } from '../lib/forms';
+import { formatMoney, type CurrencyCode } from '../lib/currency';
+
+// The item page's price + primary action, per status: hold (available), notify
+// (coming soon), or the spoken-for / gone notice. Plus the wishlist toggle on
+// buyable/upcoming pieces. Rendered once per page — in the map film's final
+// frame, or in the info column when the item has no map. The form handlers
+// live in pages/item/[sku].astro and find these by id.
+interface Props {
+  product: Product;
+  currency: CurrencyCode;
+  rates: Record<string, number>;
+  inCart: boolean;
+  signedIn: boolean;
+  isWishlisted: boolean;
+}
+const { product: p, currency, rates, inCart, signedIn, isWishlisted } = Astro.props;
+const isAvailable = p.status === 'available';
+const isComingSoon = p.status === 'coming-soon';
+const isReserved = p.status === 'reserved';
+const canWishlist = isAvailable || isComingSoon;
+---
+
+{isAvailable && (
+  <>
+    <div class="price-row">
+      <span class="price serif" data-usd={p.price ?? undefined}>{formatMoney(p.price, currency, rates)}</span>
+      <span class="price-note">No reproductions</span>
+    </div>
+    <form id="hold-form" method="POST" action="/api/cart">
+      <input type="hidden" name="action" value="hold" />
+      <input type="hidden" name="sku" value={p.sku} />
+      <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
+      <button class="btn-gold" type="submit" id="hold-btn" disabled={inCart} data-cursor="Hold">
+        <span id="hold-btn-label">{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
+      </button>
+    </form>
+    <div class="claim-sub" id="hold-sub">
+      {inCart ? 'Review it in your cart to confirm the claim.' : 'Held until checkout. Nothing closes until you confirm.'}
+    </div>
+  </>
+)}
+
+{isComingSoon && (
+  <>
+    <div class="price-row">
+      <span class="price serif" style="color:var(--muted);">Not yet priced</span>
+      <span class="price-note">Coming soon</span>
+    </div>
+    <form id="notify-form" novalidate>
+      <input type="hidden" name="access_key" value={WEB3FORMS_KEY} />
+      <input type="hidden" name="subject" value={`DOKU — Notify Request: ${p.title}`} />
+      <input type="hidden" name="from_name" value="DOKU Notify Form" />
+      <input type="hidden" name="sku" value={p.sku} />
+      <input type="hidden" name="item" value={p.title} />
+      <div class="form-group">
+        <label for="notify-email">Notify me when it's found</label>
+        <input id="notify-email" name="email" type="email" required placeholder="you@email.com" />
+      </div>
+      <p class="fine-print">Sent via a third-party delivery service. See <a href="/privacy">Privacy</a>.</p>
+      <button class="btn-gold" type="submit" data-cursor="Notify"><span>Notify me</span></button>
+    </form>
+    <div id="notify-result" class="claim-sub" style="margin-top:14px;"></div>
+  </>
+)}
+
+{isReserved && (
+  <>
+    <div class="price-row">
+      <span class="price serif" style="color:var(--claimed);">Held</span>
+      <span class="price-note">Pending confirmation</span>
+    </div>
+    <button class="btn-ghost" disabled>This DOKU is spoken for</button>
+    <div class="claim-sub">Someone has claimed this. We're finishing the details on our end.</div>
+  </>
+)}
+
+{!isAvailable && !isComingSoon && !isReserved && (
+  <>
+    <div class="price-row">
+      <span class="price serif" style="color:var(--claimed);">Claimed</span>
+      <span class="price-note">No reproductions</span>
+    </div>
+    <button class="btn-ghost" disabled>This DOKU is gone</button>
+    <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
+  </>
+)}
+
+{canWishlist && (
+  <div class="wishlist-row">
+    {signedIn ? (
+      <form id="wishlist-form" method="POST" action="/api/account/wishlist" data-watching={isWishlisted ? '1' : '0'}>
+        <input type="hidden" name="action" value={isWishlisted ? 'remove' : 'add'} />
+        <input type="hidden" name="sku" value={p.sku} />
+        <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
+        <button class="btn-wishlist" type="submit" id="wishlist-btn">
+          <span id="wishlist-label">{isWishlisted ? 'Watching — remove' : 'Keep an eye on this'}</span>
+        </button>
+      </form>
+    ) : (
+      <a class="btn-wishlist" href="/login">Sign in to keep a list</a>
+    )}
+  </div>
+)}
