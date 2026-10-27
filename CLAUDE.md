@@ -109,6 +109,41 @@ DOKU" for exactly this reason).
   - Dev builds expose `window.__gsap` / `window.__dokuHook` for stepping
     animations in a backgrounded preview (rAF pauses there); stripped from
     production builds.
+  - **Living photo (added 2026-10-27, live):** on `/item/:sku`, a product
+    photo "breathes" with no video: a slow 14s yoyo camera drift (scale +
+    slight pan) and a band of lamplight (`.frame-light`, soft-light blend)
+    crossing the frame every ~8s. Paused off-screen via ScrollTrigger.
+    `livingPhoto()` in `web/src/motion/scenes/item.ts`; styles in
+    `motion.css`. Motion pages only, so reduced-motion visitors get the still.
+- **Origin chapter (added 2026-10-27, live)** — every item page with a
+  rendered map gets an "Origin" section (`web/src/components/OriginMap.astro`)
+  under the product: a gold street-network poster of the object's city, the
+  market looped by a hand-drawn pen mark with its name, a city/region/
+  coordinates caption, a short true paragraph about the city's craft, and
+  "Where this craft still lives" + the market. **Honesty rule:** the market
+  is always "where this craft still lives", **never "where we bought it"** —
+  a made-up purchase record would break the authenticity promise. Coming-soon
+  items get the eyebrow "Where we're looking".
+  - Data: `web/src/lib/origins.json` (per sku: city, region, lat/lon of the
+    market, map half-width `km`, optional `alleys`, `craft`, `market`,
+    `marketNote`). `origins.ts` exposes `originFor(sku)`, which returns null
+    unless the sku is in `origin-maps.json`, so a missing map hides the whole
+    chapter.
+  - Maps are **static SVGs** in `web/public/origins/<sku>.svg`, pre-rendered
+    from OpenStreetMap (Overpass API) by
+    `web/scripts/build-origin-maps.mjs`. Run `node
+    scripts/build-origin-maps.mjs [skus…]` from `web/`. It rotates three
+    Overpass mirrors, skips cities whose servers are busy, and rewrites
+    `origin-maps.json`. Visitors never call OSM. ODbL requires the
+    "Map data © OpenStreetMap contributors" credit, which is on the page.
+    Keep it.
+  - Rendered: 007 Jaipur, 009 Mannar, 014 Kyoto, 015 Marrakech, 016 Oaxaca,
+    017 Athens, 021 Oslo. **Pending (Overpass timed out):** 018 London, 003
+    Lisbon, 019 Tokyo, 012 Cusco, 020 Aberdeen. Their data is already in
+    `origins.json`, so just re-run the script for those skus.
+  - Motion: `originScene()` in `item.ts`. The map surfaces from blur, the
+    pen loop draws around the market, then the leader line and label appear,
+    all scrubbed to scroll.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. ~~**Never display an image of an object DOKU doesn't physically own**, even
