@@ -4,10 +4,11 @@ import { WEB3FORMS_KEY } from '../lib/forms';
 import { formatMoney, type CurrencyCode } from '../lib/currency';
 
 // The item page's price + primary action, per status: hold (available), notify
-// (coming soon), or the spoken-for / gone notice. Plus the wishlist toggle on
-// buyable/upcoming pieces. Rendered once per page — in the map film's final
-// frame, or in the info column when the item has no map. The form handlers
-// live in pages/item/[sku].astro and find these by id.
+// (coming soon), or the spoken-for / gone notice — plus the notes under it (the
+// hold reassurance, the epitaph) and the wishlist toggle. `part` splits them:
+// the map film shows only the action, so nothing crowds the piece, and puts
+// the notes in the details below. Each part renders once per page; the form
+// handlers live in pages/item/[sku].astro and find these by id.
 interface Props {
   product: Product;
   currency: CurrencyCode;
@@ -15,15 +16,18 @@ interface Props {
   inCart: boolean;
   signedIn: boolean;
   isWishlisted: boolean;
+  part?: 'all' | 'action' | 'notes';
 }
-const { product: p, currency, rates, inCart, signedIn, isWishlisted } = Astro.props;
+const { product: p, currency, rates, inCart, signedIn, isWishlisted, part = 'all' } = Astro.props;
+const action = part !== 'notes';
+const notes = part !== 'action';
 const isAvailable = p.status === 'available';
 const isComingSoon = p.status === 'coming-soon';
 const isReserved = p.status === 'reserved';
 const canWishlist = isAvailable || isComingSoon;
 ---
 
-{isAvailable && (
+{action && isAvailable && (
   <>
     <div class="price-row">
       <span class="price serif" data-usd={p.price ?? undefined}>{formatMoney(p.price, currency, rates)}</span>
@@ -37,13 +41,15 @@ const canWishlist = isAvailable || isComingSoon;
         <span id="hold-btn-label">{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
       </button>
     </form>
-    <div class="claim-sub" id="hold-sub">
-      {inCart ? 'Review it in your cart to confirm the claim.' : 'Held until checkout. Nothing closes until you confirm.'}
-    </div>
   </>
 )}
+{notes && isAvailable && (
+  <div class="claim-sub" id="hold-sub">
+    {inCart ? 'Review it in your cart to confirm the claim.' : 'Held until checkout. Nothing closes until you confirm.'}
+  </div>
+)}
 
-{isComingSoon && (
+{action && isComingSoon && (
   <>
     <div class="price-row">
       <span class="price serif" style="color:var(--muted);">Not yet priced</span>
@@ -66,29 +72,31 @@ const canWishlist = isAvailable || isComingSoon;
   </>
 )}
 
-{isReserved && (
+{action && isReserved && (
   <>
     <div class="price-row">
       <span class="price serif" style="color:var(--claimed);">Held</span>
       <span class="price-note">Pending confirmation</span>
     </div>
     <button class="btn-ghost" disabled>This DOKU is spoken for</button>
-    <div class="claim-sub">Someone has claimed this. We're finishing the details on our end.</div>
   </>
 )}
+{notes && isReserved && <div class="claim-sub">Someone has claimed this. We're finishing the details on our end.</div>}
 
-{!isAvailable && !isComingSoon && !isReserved && (
+{action && !isAvailable && !isComingSoon && !isReserved && (
   <>
     <div class="price-row">
       <span class="price serif" style="color:var(--claimed);">Claimed</span>
       <span class="price-note">No reproductions</span>
     </div>
     <button class="btn-ghost" disabled>This DOKU is gone</button>
-    <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
   </>
 )}
+{notes && !isAvailable && !isComingSoon && !isReserved && (
+  <div class="claim-sub">{p.epitaph ? `“${p.epitaph}”` : 'Once claimed, a listing does not return.'}</div>
+)}
 
-{canWishlist && (
+{notes && canWishlist && (
   <div class="wishlist-row">
     {signedIn ? (
       <form id="wishlist-form" method="POST" action="/api/account/wishlist" data-watching={isWishlisted ? '1' : '0'}>

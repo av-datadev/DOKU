@@ -73,7 +73,7 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
   {origin ? (
     <>
       <ItemFilm product={p} origin={origin} statusLabel={statusLabel} faded={!isAvailable && !isComingSoon}>
-        <ItemBuy slot="buy" {...buy} />
+        <ItemBuy slot="buy" part="action" {...buy} />
       </ItemFilm>
 
       <section class="item-details wrap" data-details>
@@ -92,6 +92,7 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
           )}
         </div>
         <div class="details-side">
+          <div class="details-notes"><ItemBuy part="notes" {...buy} /></div>
           {specs.length > 0 && (
             <div class="specs">
               {specs.map(([k, v]) => <div class="spec-row"><span>{k}</span><span>{v}</span></div>)}
@@ -301,6 +302,9 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
   .details-story .story-block p { margin-top: 0; }
   .details-story .eyebrow { margin-bottom: 18px; }
   .details-side .specs { border-top: none; padding-top: 0; }
+  .details-notes:has(> *) { margin-bottom: 30px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline); }
+  .details-notes .claim-sub { text-align: left; margin-bottom: 0; }
+  .details-notes .wishlist-row { margin-top: 10px; }
   .details-craft {
     grid-column: 1 / -1; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px 90px;
     margin-top: 50px; padding-top: 60px; border-top: 1px solid var(--hairline); align-items: end;
