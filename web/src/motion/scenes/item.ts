@@ -103,6 +103,16 @@ async function filmScene(film: HTMLElement) {
   gsap.set(piece, { opacity: 0, y: centre - mid(piece), scale: 0.04 });
   gsap.set(buy, { opacity: 0, y: 14 });
   gsap.set(place, { opacity: 0 });
+  // The market label travels into the corner caption as the piece rises: the
+  // offset from its spot under the circle to the caption's market line.
+  const corner = place.querySelector<HTMLElement>('.film-market-name');
+  let toCorner = { x: 0, y: 0 };
+  if (market && corner) {
+    const from = market.getBoundingClientRect();
+    const to = corner.getBoundingClientRect();
+    toCorner = { x: to.right - from.right, y: to.top - from.top };
+    gsap.set(corner, { opacity: 0 });
+  }
 
   const phone = window.innerWidth < 768;
   const header = document.querySelector('header')?.offsetHeight ?? 0;
@@ -118,7 +128,9 @@ async function filmScene(film: HTMLElement) {
     .to(loop, { strokeDashoffset: 0, duration: 0.9 }, 1.3)
     .to(market, { opacity: 1, duration: 0.35 }, 1.8)
     .to(place, { opacity: 1, duration: 0.4 }, 1.9)
-    .to(market, { opacity: 0, duration: 0.3 }, 2.5)
+    .to(market, { ...toCorner, duration: 0.9, ease: 'power2.inOut' }, 2.5)
+    .set(corner ?? {}, { opacity: 1 }, 3.4)
+    .set(market, { opacity: 0 }, 3.4)
     .to(piece, { y: 0, scale: 1, opacity: 1, duration: 1, ease: 'power3.out' }, 2.5)
     .to(ring, { opacity: 0.35, duration: 1 }, 2.5)
     .to(buy, { opacity: 1, y: 0, duration: 0.5 }, 3.3)
