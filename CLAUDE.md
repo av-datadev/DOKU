@@ -115,20 +115,47 @@ DOKU" for exactly this reason).
     crossing the frame every ~8s. Paused off-screen via ScrollTrigger.
     `livingPhoto()` in `web/src/motion/scenes/item.ts`; styles in
     `motion.css`. Motion pages only, so reduced-motion visitors get the still.
-- **Origin chapter (added 2026-10-27, live)** — every item page with a
-  rendered map gets an "Origin" section (`web/src/components/OriginMap.astro`)
-  under the product: a gold street-network poster of the object's city, the
-  market looped by a hand-drawn pen mark with its name, a city/region/
-  coordinates caption, a short true paragraph about the city's craft, and
-  "Where this craft still lives" + the market. **Honesty rule:** the market
+- **Map film on item pages (2026-10-28, live; replaced the 2026-10-27
+  "Origin" section)** — an item whose city has a rendered map opens with
+  `web/src/components/ItemFilm.astro`: the city's gold street map as the
+  backdrop, a loose pen loop round the market (the map is always centred on
+  the market, so the loop at the centre always surrounds it), and the piece
+  on an **ivory mat** with its price + action (`ItemBuy.astro`) below the
+  name, with "CITY · market" in the bottom-right corner. Under it,
+  `[data-details]` lists the story, specs, the city's craft paragraph and
+  "Where this craft still lives" + the OSM credit.
+  - **Motion** (`filmScene()` in `web/src/motion/scenes/item.ts`): pinned
+    and scrubbed (native scroll, pin only). The name sits alone over a
+    close, dim city; the city zooms out; the loop draws and the market name
+    appears; the piece rises out of the circle; then the price and action.
+    The markup itself is the final frame, so no-JS and reduced-motion
+    visitors see that. If the frame is taller than the screen (e.g. a
+    coming-soon notify form on a phone) it can't pin and plays once instead.
+    A card→item match cut lands on the mat (`#item-frame`) and skips the
+    film, drawing only the loop.
+  - Items **without** a map keep the old two-column frame + info layout.
+  - **Mat photos:** `web/public/products/mat/<sku>.jpg` are the default
+    photos trimmed to the object by `web/scripts/trim-product-photos.py`
+    (Pillow + numpy; run when a photo is added). Originals untouched;
+    `matImage()` in `products.ts` picks the trimmed one for default images.
+  - **Place said once:** the film's corner caption (or one plain origin line
+    when there's no map). No "Found in…" line, no "Found in" on cards, and
+    the "Origin" spec row is hidden when it only repeats the city.
+    **Product names carry no place** (renamed 2026-10-28 in the live DB:
+    koi lacquer box, hand-loom, clay vessel, tile set, katar, brass lamp,
+    backstrap weave, blue weight, rya). Keep new names place-free.
+  - **Honesty rule:** the market
   is always "where this craft still lives", **never "where we bought it"** —
-  a made-up purchase record would break the authenticity promise. Coming-soon
-  items get the eyebrow "Where we're looking".
+  a made-up purchase record would break the authenticity promise. The film
+  only names the market; nothing says the piece was found or bought there.
+  Coming-soon items get the eyebrow "Where we're looking".
   - Data: `web/src/lib/origins.json` (per sku: city, region, lat/lon of the
     market, map half-width `km`, optional `alleys`, `craft`, `market`,
     `marketNote`). `origins.ts` exposes `originFor(sku)`, which returns null
-    unless the sku is in `origin-maps.json`, so a missing map hides the whole
-    chapter.
+    unless the sku is in `origin-maps.json`, so an item without a map falls
+    back to the two-column layout. Adding a city (e.g. Delhi → Chandni Chowk)
+    = one `origins.json` entry with the market's coordinates + a run of the
+    map script; the film works with no code change.
   - Maps are **static SVGs** in `web/public/origins/<sku>.svg`, pre-rendered
     from OpenStreetMap (Overpass API) by
     `web/scripts/build-origin-maps.mjs`. Run `node
@@ -141,9 +168,6 @@ DOKU" for exactly this reason).
     017 Athens, 021 Oslo. **Pending (Overpass timed out):** 018 London, 003
     Lisbon, 019 Tokyo, 012 Cusco, 020 Aberdeen. Their data is already in
     `origins.json`, so just re-run the script for those skus.
-  - Motion: `originScene()` in `item.ts`. The map surfaces from blur, the
-    pen loop draws around the market, then the leader line and label appear,
-    all scrubbed to scroll.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. ~~**Never display an image of an object DOKU doesn't physically own**, even
