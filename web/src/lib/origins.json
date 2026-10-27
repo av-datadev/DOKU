@@ -1,0 +1,86 @@
+{
+  "014": {
+    "city": "Kyoto", "region": "Kyoto Prefecture, Japan",
+    "lat": 34.980631, "lon": 135.74771, "km": 1.8,
+    "craft": "Kyoto has worked lacquer for more than a thousand years. Kyō-shikki is built coat by coat from the sap of the urushi tree, each layer left to cure before the next goes on.",
+    "market": "Tō-ji temple market",
+    "marketNote": "Kōbō-san, held in the grounds of Tō-ji on the 21st of every month — one of Japan's oldest flea markets."
+  },
+  "015": {
+    "city": "Marrakech", "region": "Marrakech-Safi, Morocco",
+    "lat": 31.628816, "lon": -7.987048, "km": 1.2, "alleys": true,
+    "craft": "Weavers from the Atlas still bring their rugs down to the medina. Each pattern is carried in memory, not on paper, so no two looms make the same thing twice.",
+    "market": "Rahba Kedima",
+    "marketNote": "The old square at the heart of the souks, north of Jemaa el-Fna, where carpets are still traded."
+  },
+  "016": {
+    "city": "Oaxaca", "region": "Oaxaca, Mexico",
+    "lat": 17.058935, "lon": -96.72668, "km": 1.6,
+    "craft": "The valleys around Oaxaca hold some of Mexico's oldest pottery traditions. In San Bartolo Coyotepec the clay is burnished by hand with a stone and fired to the black that made it famous.",
+    "market": "Mercado Benito Juárez",
+    "marketNote": "The old market of the historic centre, steps from the zócalo."
+  },
+  "017": {
+    "city": "Athens", "region": "Attica, Greece",
+    "lat": 37.976178, "lon": 23.724747, "km": 1.6,
+    "craft": "Athens has worked silver since antiquity — the mines at Laurion paid for its fleet. Its jewellers still gather in the streets below the Acropolis.",
+    "market": "Monastiraki flea market",
+    "marketNote": "On Ifestou Street, named for the god of the forge."
+  },
+  "018": {
+    "city": "London", "region": "England, United Kingdom",
+    "lat": 51.516336, "lon": -0.20532, "km": 1.8,
+    "craft": "London's stone was carried in from the quarries. Portland limestone faces St Paul's and much of the city rebuilt after the Great Fire.",
+    "market": "Portobello Road",
+    "marketNote": "London's best-known antiques market, on Saturdays in Notting Hill."
+  },
+  "003": {
+    "city": "Lisbon", "region": "Lisbon, Portugal",
+    "lat": 38.715392, "lon": -9.125928, "km": 1.6,
+    "craft": "Painted tile reached Lisbon in the fifteenth and sixteenth centuries and never left. Whole façades of the city are still clad in azulejos.",
+    "market": "Feira da Ladra",
+    "marketNote": "Lisbon's flea market on the Campo de Santa Clara, Tuesdays and Saturdays."
+  },
+  "007": {
+    "city": "Jaipur", "region": "Rajasthan, India",
+    "lat": 26.92387, "lon": 75.822672, "km": 1.8,
+    "craft": "Jaipur's armourers worked for the Kachwaha court. The katar, a dagger gripped in the fist, was a blade of Rajput nobility.",
+    "market": "Tripolia Bazaar",
+    "marketNote": "Across the middle of the walled Pink City, laid out as a grid in 1727."
+  },
+  "009": {
+    "city": "Mannar", "region": "Alappuzha, Kerala, India",
+    "lat": 9.3174015, "lon": 76.533863, "km": 2.4,
+    "craft": "In Kerala the brass lamp is lit at the threshold at dusk. Mannar, a town in Alappuzha, has cast bell metal for generations.",
+    "market": "The foundries of Mannar",
+    "marketNote": "Where lamps and temple vessels are still cast by hand."
+  },
+  "012": {
+    "city": "Cusco", "region": "Cusco, Peru",
+    "lat": -13.52115, "lon": -71.9825, "km": 1.6,
+    "craft": "In the Andes, weaving is a language: patterns passed from mother to daughter, spun from alpaca and sheep's wool, coloured with plants and cochineal.",
+    "market": "Mercado de San Pedro",
+    "marketNote": "Cusco's central market, a few blocks from the Plaza de Armas."
+  },
+  "019": {
+    "city": "Tokyo", "region": "Tokyo, Japan",
+    "lat": 35.714479, "lon": 139.78891, "km": 1.4,
+    "craft": "Japanese blades are forged and folded in layers. Patterned-steel kitchen knives carry that grain in every edge.",
+    "market": "Kappabashi",
+    "marketNote": "Tokyo's kitchen-tool street, between Ueno and Asakusa, lined with knife shops."
+  },
+  "020": {
+    "city": "Aberdeen", "region": "Scotland, United Kingdom",
+    "lat": 57.147791, "lon": -2.094189, "km": 1.6,
+    "craft": "Murano's millefiori glass found a second home in Scotland, where twentieth-century makers in Perthshire and Caithness took up the paperweight.",
+    "market": "The Castlegate",
+    "marketNote": "Aberdeen's old market place, marked by the Mercat Cross since 1686."
+  },
+  "021": {
+    "city": "Oslo", "region": "Oslo, Norway",
+    "lat": 59.926351, "lon": 10.760197, "km": 1.6,
+    "craft": "The rya began as a working blanket on Nordic boats and beds — a long knotted pile to keep the cold out — before it moved to the wall.",
+    "market": "Birkelunden",
+    "marketNote": "The Sunday flea market in Grünerløkka's park."
+  }
+}

@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import Frame from '../../components/Frame.astro';
 import ItemCard from '../../components/ItemCard.astro';
+import OriginMap from '../../components/OriginMap.astro';
 import { fetchProducts, fetchProduct } from '../../lib/products';
 import { WEB3FORMS_KEY } from '../../lib/forms';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
@@ -194,6 +195,8 @@ if (signedIn && canWishlist) {
       )}
     </div>
   </div>
+
+  <OriginMap sku={p.sku} comingSoon={isComingSoon} />
 
   {related.length > 0 && (
     <>

@@ -183,3 +183,11 @@
 }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-fade-in { from { opacity: 0; } }
+
+/* ── ITEM · the living photo: a lamp passes over the piece (item.ts adds it) ── */
+.motion .frame-light {
+  position: absolute; inset: -10%; pointer-events: none; z-index: 1;
+  background: linear-gradient(105deg, transparent 38%, rgba(237, 230, 214, .22) 48%, rgba(176, 141, 87, .18) 53%, transparent 64%);
+  mix-blend-mode: soft-light; transform: translateX(-70%);
+}
+.motion .frame-faded .frame-light { opacity: .45; }
