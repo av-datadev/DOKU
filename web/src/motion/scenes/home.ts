@@ -3,7 +3,7 @@
 //   4 tracking shot · 5 sketches draw · 6 archive drain · 7 final frame.
 // Every scene checks its section exists: empty catalogue sections skip cleanly.
 
-import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, snapBrackets, drawSketch, revealCard, revealArchiveCard, ready } from '../core';
+import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, drawSketch, revealCard, revealArchiveCard, ready } from '../core';
 import { BEAT, EIGHTH, beatPx, scrollBeats } from '../beat';
 
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
@@ -11,7 +11,7 @@ const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = doc
   Array.from(root.querySelectorAll<T>(sel));
 
 /** Scene 0 — the hook. Time-based, ~1.6s: hairline → "1" → "/1" → collapse
- *  into DOKU while the brackets fly to the corners → tagline + CTA. Any input
+ *  into DOKU → tagline + CTA. Any input
  *  skips straight to the end frame (it plays every visit: nothing is stored). */
 function hook(hero: HTMLElement): Promise<void> {
   const line = $('.hook-line', hero);
@@ -20,7 +20,6 @@ function hook(hero: HTMLElement): Promise<void> {
   const num = $('.hook-num', hero);
   const chars = $$('.hero-brand .ch', hero);
   const brand = $('.hero-brand', hero);
-  const brackets = $('.brackets', hero);
   const tagline = $('.hero-tagline', hero);
   const cta = $('.hero-cta', hero);
   const cue = $('.hero-scroll', hero);
@@ -35,9 +34,8 @@ function hook(hero: HTMLElement): Promise<void> {
     .to(line, { opacity: 0, duration: 0.3 }, EIGHTH)
     .fromTo(slash, { opacity: 0, x: '0.4em' }, { opacity: 1, x: 0, duration: 0.16, ease: 'power4.out' }, BEAT)
     .to(num, { scale: 0.12, opacity: 0, duration: 0.32, ease: 'power3.in' }, BEAT * 1.6)
-    .fromTo(chars, { opacity: 0, scale: 1.6 }, { opacity: 1, scale: 1, duration: 0.45, stagger: 0.04 }, BEAT * 2);
-  if (brackets) tl.add(snapBrackets(brackets, { from: 140 }), BEAT * 2);
-  tl.to(words, { opacity: 1, y: 0, startAt: { y: 10 }, duration: 0.5, stagger: EIGHTH / 2 }, BEAT * 2.25)
+    .fromTo(chars, { opacity: 0, scale: 1.6 }, { opacity: 1, scale: 1, duration: 0.45, stagger: 0.04 }, BEAT * 2)
+    .to(words, { opacity: 1, y: 0, startAt: { y: 10 }, duration: 0.5, stagger: EIGHTH / 2 }, BEAT * 2.25)
     .fromTo(cta, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5 }, BEAT * 2.5)
     .fromTo(cue, { opacity: 0 }, { opacity: 1, duration: 0.6 }, BEAT * 3);
 
@@ -74,7 +72,7 @@ function pushThroughO(hero: HTMLElement, hookDone: Promise<void>) {
   gsap.set(h1, { opacity: 1 });
   gsap.set(split.chars, { yPercent: 110 });
 
-  const falling = ['.hero-tagline', '.hero-cta', '.hero-scroll', '.brackets']
+  const falling = ['.hero-tagline', '.hero-cta', '.hero-scroll']
     .map((s) => $(s, hero))
     .filter((el): el is HTMLElement => !!el);
 
@@ -130,10 +128,9 @@ function kineticCuts(section: HTMLElement) {
   tl.to(lastChars, { y: -90, opacity: 0, stagger: 0.05, duration: 0.5, ease: 'power2.in' }, words.length - 0.55);
 }
 
-/** Scene 3 — manifesto lit word by word while the vitrine closes around it. */
+/** Scene 3 — manifesto lit word by word. */
 function manifesto(section: HTMLElement) {
   const p = $('[data-lamp]', section);
-  const brackets = $('.brackets', section);
   if (!p) return;
   own(p);
   const split = SplitText.create(p, { type: 'words' });
@@ -146,13 +143,6 @@ function manifesto(section: HTMLElement) {
   });
   tl.fromTo(split.words, { opacity: 0.15 }, { opacity: 1, stagger: 0.02, duration: 0.1 }, 0);
   tl.to(goldWords, { color: '#B08D57', duration: 0.1 }, '>-0.05');
-  if (brackets) {
-    $$('.corner', brackets).forEach((c) => {
-      const dx = c.classList.contains('tl') || c.classList.contains('bl') ? -1 : 1;
-      const dy = c.classList.contains('tl') || c.classList.contains('tr') ? -1 : 1;
-      tl.fromTo(c, { x: dx * 90, y: dy * 70, opacity: 0 }, { x: 0, y: 0, opacity: 1, duration: tl.duration() }, 0);
-    });
-  }
 }
 
 /** Scene 4 — vertical scroll becomes a horizontal camera track (desktop). */
@@ -179,21 +169,6 @@ function trackingShot(carousel: HTMLElement) {
       return;
     }
 
-    // Clip the moving track with its own wrapper, not the carousel, so the exit
-    // brackets (a sibling) can open past the carousel's edges to the screen.
-    carousel.style.overflow = 'visible';
-    const clip = document.createElement('div');
-    clip.style.overflow = 'hidden';
-    track.before(clip);
-    clip.appendChild(track);
-    const exit = document.createElement('div');
-    exit.className = 'brackets track-exit';
-    exit.setAttribute('aria-hidden', 'true');
-    exit.innerHTML = '<span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>';
-    carousel.appendChild(exit);
-    const lastCard = cards[cards.length - 1];
-    const lastFrame = lastCard?.querySelector<HTMLElement>('.frame');
-
     const tl = gsap.timeline({
       defaults: { ease: 'none' },
       scrollTrigger: {
@@ -208,38 +183,6 @@ function trackingShot(carousel: HTMLElement) {
       },
     });
     tl.to(track, { x: () => -distance(), duration: 1 });
-    if (lastFrame) {
-      // Match cut out: the last frame's brackets open to the whole screen.
-      const box = () => carousel.getBoundingClientRect();
-      tl.set(exit, { display: 'block' }, 1)
-        .fromTo(
-          exit,
-          {
-            left: () => lastCard.offsetLeft + lastFrame.offsetLeft - distance(),
-            top: () => lastCard.offsetTop + lastFrame.offsetTop,
-            width: () => lastFrame.offsetWidth,
-            height: () => lastFrame.offsetHeight,
-            opacity: 1,
-          },
-          {
-            left: () => -box().left + 24,
-            top: () => -box().top + 24,
-            width: () => window.innerWidth - 48,
-            height: () => window.innerHeight - 48,
-            duration: 0.35,
-            ease: 'power2.inOut',
-          },
-          1.02,
-        )
-        .to(track, { opacity: 0.25, duration: 0.3 }, 1.05)
-        .to(exit, { opacity: 0, duration: 0.12 }, '>');
-    }
-    return () => {
-      carousel.style.overflow = '';
-      clip.before(track);
-      clip.remove();
-      exit.remove();
-    };
   });
 }
 
@@ -258,15 +201,13 @@ function drain(section: HTMLElement) {
   });
 }
 
-/** Scene 7 — the brackets lock onto the final frame on one hit. */
+/** Scene 7 — the final frame lands on one hit. */
 function finale(section: HTMLElement) {
-  const brackets = $('.brackets', section);
   const mark = $('.finale-mark', section);
   const h2 = $('h2', section);
-  if (!brackets) return;
+  if (!mark || !h2) return;
   const tl = gsap.timeline({ paused: true });
-  tl.add(snapBrackets(brackets, { from: Math.max(window.innerWidth, window.innerHeight) * 0.45 }), 0)
-    .from([mark, h2], { opacity: 0, y: 16, duration: 0.8, stagger: EIGHTH }, EIGHTH);
+  tl.from([mark, h2], { opacity: 0, y: 16, duration: 0.8, stagger: EIGHTH }, EIGHTH);
   ScrollTrigger.create({ trigger: section, start: 'center 65%', once: true, onEnter: () => tl.play() });
 }
 

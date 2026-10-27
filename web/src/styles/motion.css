@@ -60,7 +60,6 @@
 }
 .hook-num .hook-one { display: inline-block; clip-path: inset(0 0 100% 0); }
 .hook-num .hook-slash { display: inline-block; font-style: italic; color: var(--gold); opacity: 0; }
-.hero .brackets { --b-inset: 28px; --b-size: 28px; }
 .hero-brand .ch { display: inline-block; }
 
 .motion .hero-brand,
@@ -94,14 +93,8 @@
   font-size: 10px; letter-spacing: 0.28em; color: var(--claimed); mix-blend-mode: difference;
 }
 
-/* ── HOME · scene 4 tracking shot ── */
-.motion .carousel { position: relative; }
-.carousel .track-exit { position: absolute; display: none; }
-.carousel .track-exit > .corner { opacity: 1; }
-
 /* ── HOME · scene 3 manifesto ── */
 .manifesto-frame { position: relative; max-width: 780px; margin: 0 auto; padding: 56px 48px; }
-.manifesto-frame .brackets { --b-size: 26px; }
 .manifesto .gold-word { transition: color .3s; }
 .motion .manifesto { min-height: 100svh; display: grid; place-items: center; }
 
@@ -111,7 +104,6 @@
   padding: 120px 24px; position: relative;
 }
 .finale-frame { position: relative; padding: 72px clamp(28px, 7vw, 96px) 64px; }
-.finale-frame .brackets { --b-size: 30px; }
 .finale-mark {
   font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
   color: var(--gold); font-size: 15px; letter-spacing: 0.08em;

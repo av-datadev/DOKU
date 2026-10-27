@@ -34,6 +34,15 @@ export const FALLBACK_PRODUCTS: Product[] = [
   },
 ];
 
+// Default photo per sku, served from web/public/products/. Public-domain / CC0
+// museum photographs (Wikimedia Commons) — not the actual DOKU pieces; shown
+// without a disclosure by the owner's explicit override of Hard rule 1
+// (2026-10-27). An `image` set in the database always wins over these.
+const DEFAULT_IMAGES = new Set(['003', '007', '009', '012', '014', '015', '016', '019', '020', '021']);
+
+const withDefaultImage = (p: Product): Product =>
+  p.image || !DEFAULT_IMAGES.has(p.sku) ? p : { ...p, image: `/products/${p.sku}.jpg` };
+
 // Server-side fetch used by SSR pages. RLS allows anon SELECT on products.
 export async function fetchProducts(): Promise<Product[]> {
   try {
@@ -41,10 +50,10 @@ export async function fetchProducts(): Promise<Product[]> {
       .from('products')
       .select('*')
       .order('sort_order', { ascending: true });
-    if (error || !data || data.length === 0) return FALLBACK_PRODUCTS;
-    return data as Product[];
+    if (error || !data || data.length === 0) return FALLBACK_PRODUCTS.map(withDefaultImage);
+    return (data as Product[]).map(withDefaultImage);
   } catch {
-    return FALLBACK_PRODUCTS;
+    return FALLBACK_PRODUCTS.map(withDefaultImage);
   }
 }
 

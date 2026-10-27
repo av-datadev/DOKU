@@ -38,7 +38,6 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
       <div class="hook-line"></div>
       <div class="hook-num"><span class="hook-one">1</span><span class="hook-slash">/1</span></div>
     </div>
-    <div class="brackets m-only" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
     <div class="hero-inner">
       <div class="hero-brand"><span class="sr-only">DOKU</span>{['D', 'O', 'K', 'U'].map((c) => <span class:list={['ch', { 'ch-o': c === 'O' }]} aria-hidden="true">{c}</span>)}</div>
       <div class="hero-tagline">Found. Not made.</div>
@@ -73,8 +72,7 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
 
   <div class="manifesto" data-scene="manifesto">
     <div class="manifesto-frame">
-      <div class="brackets m-only" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
-      <p data-lamp>"We do not manufacture. We do not commission. We <span class="gold-word">go looking</span> — and when we find the one made in a way that <span class="gold-word">will not repeat</span>, we bring it back exactly as it was."</p>
+      <p data-lamp>"Everything you own has <span class="gold-word">a twin</span> — in a warehouse, in a stranger's cart, in next season's catalogue. We don't make things. We find the ones that <span class="gold-word">can't be made again</span> — so what you bring home is the only one there is."</p>
     </div>
   </div>
 
@@ -122,11 +120,10 @@ const farewell = Astro.url.searchParams.get('farewell') === '1';
     </div>
   )}
 
-  <!-- Scene 7 — the final frame. Rendered for everyone; with motion on, the
-       brackets lock onto it on a single hit. -->
+  <!-- Scene 7 — the final frame. Rendered for everyone; with motion on, it
+       lands on a single hit. -->
   <section class="finale" data-scene="finale">
     <div class="finale-frame">
-      <div class="brackets" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
       <div class="finale-mark">1/1</div>
       <h2>Only one.</h2>
       <a href="/collection" class="hero-cta" data-cursor="Explore"><span>Explore the collection</span></a>

@@ -111,10 +111,16 @@ DOKU" for exactly this reason).
     production builds.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
-1. **Never display an image of an object DOKU doesn't physically own**, even
+1. ~~**Never display an image of an object DOKU doesn't physically own**, even
    as a placeholder, unless it carries a visible "Reference image — not the
-   actual piece" disclosure. Pinterest screenshots / unlicensed images are
-   not acceptable under any framing, disclosed or not.
+   actual piece" disclosure.~~ **OVERRIDDEN by the owner in chat on
+   2026-10-27:** every product now shows a photo with no on-image disclosure —
+   public-domain/CC0 museum photographs from Wikimedia Commons in
+   `web/public/products/<sku>.jpg`, applied as defaults in
+   `web/src/lib/products.ts` (`DEFAULT_IMAGES`; a DB `image` still wins).
+   `/terms` now states listing images may be illustrative and that the
+   description governs. **Still binding:** Pinterest screenshots / unlicensed
+   images are never acceptable — only licensed, CC0 or public-domain images.
 2. Unsourced items use `status:'coming-soon'` and get an original hand-drawn
    gold-line SVG sketch (`SKETCHES` object, keyed by sku) instead of a photo,
    unless a properly-licensed, disclosed reference photo has been approved.
