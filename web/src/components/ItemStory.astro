@@ -28,6 +28,10 @@ interface Props {
 const { product: p, origin: o, chapters, specs, buy, canWaitlist, inCart } = Astro.props;
 const photo = matImage(p);
 const available = p.status === 'available';
+const comingSoon = p.status === 'coming-soon';
+// Without a record chapter (coming-soon stories), the finale carries the notes
+// and waitlist instead, so "keep an eye on this" is never lost.
+const hasRecord = chapters.some((c) => c.kind === 'record');
 const gone = p.status === 'reserved' ? 'Spoken for.' : p.status === 'claimed' ? 'Claimed. It does not return.' : null;
 const slug = (c: Chapter, i: number) => `${c.kind}-${i}`;
 const credit = 'Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
@@ -201,10 +205,15 @@ const credit = 'Map data © <a href="https://www.openstreetmap.org/copyright" ta
                 <span data-hold-label>{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
               </button>
             </form>
+          ) : comingSoon ? (
+            // the notify form lives in the map film's final frame, above
+            <a class="btn-gold st-notify" href="#notify-email" data-cursor="Notify"><span>Notify me when it's found</span></a>
           ) : (
             gone && <p class="st-gone serif">{gone}</p>
           )}
-          {available && c.sub && <p class="st-sub">{c.sub}</p>}
+          {(available || comingSoon) && c.sub && <p class="st-sub">{c.sub}</p>}
+          {!hasRecord && <div class="st-notes st-notes-end"><ItemBuy part="notes" {...(buy as any)} /></div>}
+          {!hasRecord && canWaitlist && <ItemWaitlist product={p} />}
         </div>
       )}
     </section>

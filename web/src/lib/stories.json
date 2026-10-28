@@ -1,32 +1,642 @@
 {
-  "014": [
-    { "kind": "bench", "title": "Prologue · The bench", "line": "Forty years on <em>one</em> workbench.", "marks": ["Made", "Forty years", "Found"] },
-    { "kind": "place", "title": "I · Where it was found", "line": "A <em>closing</em> workshop on the outskirts of Kyoto.", "after": "The doors were shutting. The box was still on the bench." },
-    { "kind": "layers", "title": "II · How it was made", "steps": ["The sap of the urushi tree.", "Laid on coat by coat.", "Each left to cure before the next.", "Then the koi, in gold."] },
-    { "kind": "sentence", "title": "III · Untaught", "words": "Hand-lacquered using a technique its maker *never* *taught* to an apprentice.", "after": "There will be no second piece made this way." },
-    { "kind": "angles", "title": "IV · Every side of it", "line": "Turn it over.", "shots": ["The lid", "The side", "Open, inside", "The base"] },
-    { "kind": "record", "title": "V · As it was", "struck": ["Restored.", "Altered."], "kept": "As it was.", "note": "The same object that sat on that workbench for forty years, now waiting on yours." },
-    { "kind": "craft", "title": "VI · The city behind it", "line": "Kyoto has worked lacquer for more than a thousand years." },
-    { "kind": "finale", "title": "VII · Yours", "lines": ["Its maker kept the technique.", "You can keep the box."], "sub": "1 of 1. Once it's held, no one else can." }
-  ],
-  "015": [
-    { "kind": "hook", "title": "Prologue · The pattern", "line": "A pattern that exists <em>nowhere else.</em>" },
-    { "kind": "place", "title": "I · Where it was found", "line": "A <em>family</em> workshop in the Marrakech medina." },
-    { "kind": "loom", "title": "II · How it was made", "line": "Woven on a loom that will not be threaded again.", "after": "The weaver's hands have since moved to other work." },
-    { "kind": "strikes", "title": "III · Where the pattern is kept", "struck": ["Not in a catalog.", "Not in his notes."], "blurred": "Not even fully in his memory of making it.", "after": "Only here." },
-    { "kind": "angles", "title": "IV · Every side of it", "line": "Up close, then closer.", "shots": ["The whole", "The pattern, close", "The back", "The edge"] },
-    { "kind": "craft", "title": "V · The city behind it", "line": "Weavers from the Atlas still bring their rugs down to the medina. Each pattern is carried in memory, not on paper." },
-    { "kind": "record", "title": "VI · The record", "struck": ["Charted.", "Copied."], "kept": "Woven once.", "note": "Pulled from a family workshop, as it came off the loom." },
-    { "kind": "finale", "title": "VII · Yours", "lines": ["The loom is empty now.", "This is what it made."], "sub": "1 of 1. The pattern leaves with whoever holds it." }
-  ],
-  "016": [
-    { "kind": "hook", "title": "Prologue · Hers", "line": "She meant to keep <em>this one.</em>" },
-    { "kind": "kiln", "title": "I · The kiln", "line": "Fired in a <em>wood-burning</em> kiln outside Oaxaca City." },
-    { "kind": "shelf", "title": "II · A batch of one", "line": "In a batch of <em>one.</em>" },
-    { "kind": "lines", "title": "III · How it came to us", "lines": ["The potter does not usually keep a second of anything she makes.", "She told us this was the piece she had planned to keep for herself."], "last": "We asked anyway." },
-    { "kind": "angles", "title": "IV · Every side of it", "line": "Turn it in your hands.", "shots": ["The front", "The handle", "The mouth, from above", "The base"] },
-    { "kind": "place", "title": "V · The valleys behind it", "line": "Some of Mexico's <em>oldest</em> pottery traditions.", "after": "Mercado Benito Juárez, steps from the zócalo, is where this craft still lives." },
-    { "kind": "record", "title": "VI · The record", "struck": ["A set.", "A series."], "kept": "One.", "note": "Not one of many. The one she had set aside." },
-    { "kind": "finale", "title": "VII · Yours", "lines": ["She made it to keep.", "Just not for herself."], "sub": "1 of 1. There was only ever one." }
-  ]
+ "014": [
+  {
+   "kind": "bench",
+   "title": "Prologue · The bench",
+   "line": "Forty years on <em>one</em> workbench.",
+   "marks": [
+    "Made",
+    "Forty years",
+    "Found"
+   ]
+  },
+  {
+   "kind": "place",
+   "title": "I · Where it was found",
+   "line": "A <em>closing</em> workshop on the outskirts of Kyoto.",
+   "after": "The doors were shutting. The box was still on the bench."
+  },
+  {
+   "kind": "layers",
+   "title": "II · How it was made",
+   "steps": [
+    "The sap of the urushi tree.",
+    "Laid on coat by coat.",
+    "Each left to cure before the next.",
+    "Then the koi, in gold."
+   ]
+  },
+  {
+   "kind": "sentence",
+   "title": "III · Untaught",
+   "words": "Hand-lacquered using a technique its maker *never* *taught* to an apprentice.",
+   "after": "There will be no second piece made this way."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "Turn it over.",
+   "shots": [
+    "The lid",
+    "The side",
+    "Open, inside",
+    "The base"
+   ]
+  },
+  {
+   "kind": "record",
+   "title": "V · As it was",
+   "struck": [
+    "Restored.",
+    "Altered."
+   ],
+   "kept": "As it was.",
+   "note": "The same object that sat on that workbench for forty years, now waiting on yours."
+  },
+  {
+   "kind": "craft",
+   "title": "VI · The city behind it",
+   "line": "Kyoto has worked lacquer for more than a thousand years."
+  },
+  {
+   "kind": "finale",
+   "title": "VII · Yours",
+   "lines": [
+    "Its maker kept the technique.",
+    "You can keep the box."
+   ],
+   "sub": "1 of 1. Once it's held, no one else can."
+  }
+ ],
+ "015": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The pattern",
+   "line": "A pattern that exists <em>nowhere else.</em>"
+  },
+  {
+   "kind": "place",
+   "title": "I · Where it was found",
+   "line": "A <em>family</em> workshop in the Marrakech medina."
+  },
+  {
+   "kind": "loom",
+   "title": "II · How it was made",
+   "line": "Woven on a loom that will not be threaded again.",
+   "after": "The weaver's hands have since moved to other work."
+  },
+  {
+   "kind": "strikes",
+   "title": "III · Where the pattern is kept",
+   "struck": [
+    "Not in a catalog.",
+    "Not in his notes."
+   ],
+   "blurred": "Not even fully in his memory of making it.",
+   "after": "Only here."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "Up close, then closer.",
+   "shots": [
+    "The whole",
+    "The pattern, close",
+    "The back",
+    "The edge"
+   ]
+  },
+  {
+   "kind": "craft",
+   "title": "V · The city behind it",
+   "line": "Weavers from the Atlas still bring their rugs down to the medina. Each pattern is carried in memory, not on paper."
+  },
+  {
+   "kind": "record",
+   "title": "VI · The record",
+   "struck": [
+    "Charted.",
+    "Copied."
+   ],
+   "kept": "Woven once.",
+   "note": "Pulled from a family workshop, as it came off the loom."
+  },
+  {
+   "kind": "finale",
+   "title": "VII · Yours",
+   "lines": [
+    "The loom is empty now.",
+    "This is what it made."
+   ],
+   "sub": "1 of 1. The pattern leaves with whoever holds it."
+  }
+ ],
+ "016": [
+  {
+   "kind": "hook",
+   "title": "Prologue · Hers",
+   "line": "She meant to keep <em>this one.</em>"
+  },
+  {
+   "kind": "kiln",
+   "title": "I · The kiln",
+   "line": "Fired in a <em>wood-burning</em> kiln outside Oaxaca City."
+  },
+  {
+   "kind": "shelf",
+   "title": "II · A batch of one",
+   "line": "In a batch of <em>one.</em>"
+  },
+  {
+   "kind": "lines",
+   "title": "III · How it came to us",
+   "lines": [
+    "The potter does not usually keep a second of anything she makes.",
+    "She told us this was the piece she had planned to keep for herself."
+   ],
+   "last": "We asked anyway."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "Turn it in your hands.",
+   "shots": [
+    "The front",
+    "The handle",
+    "The mouth, from above",
+    "The base"
+   ]
+  },
+  {
+   "kind": "place",
+   "title": "V · The valleys behind it",
+   "line": "Some of Mexico's <em>oldest</em> pottery traditions.",
+   "after": "Mercado Benito Juárez, steps from the zócalo, is where this craft still lives."
+  },
+  {
+   "kind": "record",
+   "title": "VI · The record",
+   "struck": [
+    "A set.",
+    "A series."
+   ],
+   "kept": "One.",
+   "note": "Not one of many. The one she had set aside."
+  },
+  {
+   "kind": "finale",
+   "title": "VII · Yours",
+   "lines": [
+    "She made it to keep.",
+    "Just not for herself."
+   ],
+   "sub": "1 of 1. There was only ever one."
+  }
+ ],
+ "017": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The fold",
+   "line": "One sheet of silver, <em>folded once.</em>"
+  },
+  {
+   "kind": "strikes",
+   "title": "I · How it was made",
+   "struck": [
+    "Not stamped.",
+    "Not cast."
+   ],
+   "blurred": "Not repeated.",
+   "after": "Made once, by hand."
+  },
+  {
+   "kind": "sentence",
+   "title": "II · Who it was for",
+   "words": "The fold above conforms to the *ear* *it* *was* *made* *for.*",
+   "after": "A specific ear that the maker never named."
+  },
+  {
+   "kind": "angles",
+   "title": "III · Every side of it",
+   "line": "Turn it to the light.",
+   "shots": [
+    "The front",
+    "The fold",
+    "The raw edge",
+    "The back"
+   ]
+  },
+  {
+   "kind": "place",
+   "title": "IV · The city behind it",
+   "line": "Athens has worked silver <em>since antiquity.</em>",
+   "after": "The mines at Laurion paid for its fleet."
+  },
+  {
+   "kind": "craft",
+   "title": "V · Where it still lives",
+   "line": "Its jewellers still gather in the streets below the Acropolis."
+  },
+  {
+   "kind": "record",
+   "title": "VI · The record",
+   "struck": [
+    "A pair."
+   ],
+   "kept": "One.",
+   "note": "There is no second pair. The form only works because it was made once."
+  },
+  {
+   "kind": "finale",
+   "title": "VII · Yours",
+   "lines": [
+    "Made for an ear the maker never named.",
+    "It might be yours."
+   ],
+   "sub": "1 of 1. There is no second pair."
+  }
+ ],
+ "018": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The face",
+   "line": "A face, <em>mid-sleep.</em>"
+  },
+  {
+   "kind": "sentence",
+   "title": "I · How it was carved",
+   "words": "A block of limestone. Eyes *shut,* lips *parted,* cheekbones catching light from a direction the sculptor didn't predict.",
+   "after": "A sheet of smoky glass rests above it, held by nothing visible."
+  },
+  {
+   "kind": "lines",
+   "title": "II · What it is",
+   "lines": [
+    "The stone is the furniture.",
+    "The glass is incidental."
+   ],
+   "last": "The face will outlast both."
+  },
+  {
+   "kind": "angles",
+   "title": "III · Every side of it",
+   "line": "Walk around it.",
+   "shots": [
+    "The face",
+    "In profile",
+    "Under the glass",
+    "From above"
+   ]
+  },
+  {
+   "kind": "place",
+   "title": "IV · The city behind it",
+   "line": "A city faced in <em>limestone.</em>",
+   "after": "Portland stone fronts St Paul's and much of London rebuilt after the Great Fire."
+  },
+  {
+   "kind": "record",
+   "title": "V · The record",
+   "struck": [
+    "A table."
+   ],
+   "kept": "A face.",
+   "note": "Carved limestone, smoked glass. The stone is the furniture."
+  },
+  {
+   "kind": "finale",
+   "title": "VI · Yours",
+   "lines": [
+    "The face will outlast both.",
+    "Keep it in the meantime."
+   ],
+   "sub": "1 of 1. There is no second face."
+  }
+ ],
+ "003": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The wall",
+   "line": "Lisbon's façades wear tile. <em>One kitchen</em> wears these."
+  },
+  {
+   "kind": "place",
+   "title": "I · Where it came from",
+   "line": "Painted tile reached Lisbon <em>five centuries ago</em> and never left.",
+   "after": "Whole façades of the city are still clad in azulejos."
+  },
+  {
+   "kind": "angles",
+   "title": "II · Every side of it",
+   "line": "As we last saw them.",
+   "shots": [
+    "The set",
+    "A single tile",
+    "The glaze, close",
+    "The back"
+   ]
+  },
+  {
+   "kind": "record",
+   "title": "III · The record",
+   "struck": [
+    "Available."
+   ],
+   "kept": "Claimed.",
+   "note": "Once claimed, a listing does not return."
+  },
+  {
+   "kind": "finale",
+   "title": "IV · Where it is now",
+   "lines": [
+    "Re-laid into a kitchen wall outside Lisbon.",
+    "We were not told the address."
+   ]
+  }
+ ],
+ "007": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The blade",
+   "line": "A blade of Rajput <em>nobility.</em>"
+  },
+  {
+   "kind": "sentence",
+   "title": "I · What it is",
+   "words": "The katar: a dagger *gripped* *in* *the* *fist.*",
+   "after": "Jaipur's armourers made them for the Kachwaha court."
+  },
+  {
+   "kind": "place",
+   "title": "II · The city behind it",
+   "line": "The walled <em>Pink City.</em>",
+   "after": "Laid out as a grid in 1727."
+  },
+  {
+   "kind": "angles",
+   "title": "III · Every side of it",
+   "line": "As we last saw it.",
+   "shots": [
+    "The blade",
+    "The grip",
+    "The guard",
+    "In the hand"
+   ]
+  },
+  {
+   "kind": "record",
+   "title": "IV · The record",
+   "struck": [
+    "Available."
+   ],
+   "kept": "Claimed.",
+   "note": "Once claimed, a listing does not return."
+  },
+  {
+   "kind": "finale",
+   "title": "V · Where it is now",
+   "lines": [
+    "Kept now in a drawer in Jaipur —",
+    "unsharpened, unseen."
+   ]
+  }
+ ],
+ "009": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The threshold",
+   "line": "In Kerala the lamp is lit at the threshold, <em>at dusk.</em>"
+  },
+  {
+   "kind": "kiln",
+   "title": "I · The metal",
+   "line": "In Kerala, lamps are still <em>cast</em> by hand."
+  },
+  {
+   "kind": "place",
+   "title": "II · Where the craft still lives",
+   "line": "Mannar has cast bell metal <em>for generations.</em>",
+   "after": "Lamps and temple vessels are still cast there by hand."
+  },
+  {
+   "kind": "angles",
+   "title": "III · Every side of it",
+   "line": "As we last saw it.",
+   "shots": [
+    "The lamp",
+    "The wick bowl",
+    "The base",
+    "Lit"
+   ]
+  },
+  {
+   "kind": "record",
+   "title": "IV · The record",
+   "struck": [
+    "Available."
+   ],
+   "kept": "Claimed.",
+   "note": "Once claimed, a listing does not return."
+  },
+  {
+   "kind": "finale",
+   "title": "V · Where it is now",
+   "lines": [
+    "Lit once a year, somewhere in Kerala.",
+    "We were not invited to watch."
+   ]
+  }
+ ],
+ "012": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The language",
+   "line": "In the Andes, weaving is <em>a language.</em>"
+  },
+  {
+   "kind": "lines",
+   "title": "I · How it is learned",
+   "lines": [
+    "Patterns passed from mother to daughter.",
+    "Spun from alpaca and sheep's wool."
+   ],
+   "last": "Coloured with plants and cochineal."
+  },
+  {
+   "kind": "loom",
+   "title": "II · How it is woven",
+   "line": "Andean cloth is woven on a <em>backstrap</em> loom.",
+   "after": "The weaver's own body holds the tension."
+  },
+  {
+   "kind": "place",
+   "title": "III · The city behind it",
+   "line": "Cusco, in the <em>Andes.</em>",
+   "after": "The Mercado de San Pedro, a few blocks from the Plaza de Armas, is where this craft still lives."
+  },
+  {
+   "kind": "record",
+   "title": "IV · The record",
+   "struck": [
+    "Available."
+   ],
+   "kept": "Claimed.",
+   "note": "Once claimed, a listing does not return."
+  },
+  {
+   "kind": "finale",
+   "title": "V · Where it is now",
+   "lines": [
+    "Folded away in the Andes,",
+    "waiting for an occasion that may not come."
+   ]
+  }
+ ],
+ "019": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The pair",
+   "line": "Two blades. <em>One</em> billet of steel."
+  },
+  {
+   "kind": "layers",
+   "title": "I · How it is made",
+   "steps": [
+    "Folded.",
+    "Ground.",
+    "Folded again, for years.",
+    "Until the pattern surfaces."
+   ]
+  },
+  {
+   "kind": "place",
+   "title": "II · The city behind it",
+   "line": "Japanese blades are forged and folded <em>in layers.</em>",
+   "after": "Patterned-steel kitchen knives carry that grain in every edge."
+  },
+  {
+   "kind": "lines",
+   "title": "III · Where we are",
+   "lines": [
+    "We know the steel."
+   ],
+   "last": "We haven't found who folds it yet."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "When we find it.",
+   "shots": [
+    "The pair",
+    "The grain, close",
+    "The edge",
+    "The handles"
+   ]
+  },
+  {
+   "kind": "finale",
+   "title": "V · Not yet",
+   "lines": [
+    "When we find who folds it,",
+    "you'll hear first."
+   ]
+  }
+ ],
+ "020": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The colour",
+   "line": "A blue mixed <em>once.</em>"
+  },
+  {
+   "kind": "strikes",
+   "title": "I · How it was made",
+   "struck": [
+    "Not written down.",
+    "Not mixed again."
+   ],
+   "blurred": "The furnace that made it has been cold for six years.",
+   "after": "By hand, from memory."
+  },
+  {
+   "kind": "place",
+   "title": "II · The city behind it",
+   "line": "Scotland took up <em>the paperweight.</em>",
+   "after": "Murano's millefiori found a second home with makers in Perthshire and Caithness."
+  },
+  {
+   "kind": "lines",
+   "title": "III · Where we are",
+   "lines": [
+    "We know the colour exists somewhere on a shelf."
+   ],
+   "last": "We haven't found the shelf yet."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "When we find it.",
+   "shots": [
+    "The weight",
+    "The blue, close",
+    "From above",
+    "The base"
+   ]
+  },
+  {
+   "kind": "finale",
+   "title": "V · Not yet",
+   "lines": [
+    "Somewhere, on a shelf,",
+    "a blue no one will mix again."
+   ]
+  }
+ ],
+ "021": [
+  {
+   "kind": "hook",
+   "title": "Prologue · The knot",
+   "line": "A knot tied at a density <em>no loom has matched.</em>"
+  },
+  {
+   "kind": "loom",
+   "title": "I · How it is made",
+   "line": "Dense enough that the back looks <em>woven,</em> not knotted.",
+   "after": "No loom has matched it since the workshop closed."
+  },
+  {
+   "kind": "lines",
+   "title": "II · Where we are",
+   "lines": [
+    "We've traced two of these into private collections.",
+    "Neither owner will sell."
+   ],
+   "last": "We're still looking for a third."
+  },
+  {
+   "kind": "place",
+   "title": "III · The city behind it",
+   "line": "Once a working blanket on <em>Nordic boats.</em>",
+   "after": "A long knotted pile to keep the cold out, before the rya moved to the wall."
+  },
+  {
+   "kind": "angles",
+   "title": "IV · Every side of it",
+   "line": "When we find it.",
+   "shots": [
+    "The whole",
+    "The pile, close",
+    "The back",
+    "The edge"
+   ]
+  },
+  {
+   "kind": "finale",
+   "title": "V · Not yet",
+   "lines": [
+    "Two are kept.",
+    "We're looking for the third."
+   ]
+  }
+ ]
 }

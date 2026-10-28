@@ -110,6 +110,9 @@
 .st-hold .btn-gold { width: auto; padding: 20px 64px; margin: 0; font-size: 12px; letter-spacing: .26em; }
 .st-sub { margin-top: 18px; font-size: 14px; color: var(--muted); }
 .st-gone { margin-top: 40px; font-size: 26px; color: var(--claimed); }
+.st-notify { display: inline-block; width: auto; margin-top: 44px; padding: 20px 56px; font-size: 12px; letter-spacing: .24em; text-decoration: none; }
+.st-notes-end { margin-top: 30px; border: 0; }
+.st-notes-end .claim-sub, .st-notes-end .wishlist-row { text-align: center; }
 
 /* the chapter list (built by story.ts; desktop only) */
 .st-rail {
