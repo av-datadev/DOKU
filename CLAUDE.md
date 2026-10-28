@@ -169,7 +169,7 @@ DOKU" for exactly this reason).
     019 Tokyo, 020 Aberdeen, 021 Oslo. If Overpass is overloaded the script
     skips the city; just run it again later.
 
-- **Item story (added 2026-10-28, live for 014, 015, 016)** — after the map
+- **Item story (added 2026-10-28, live for every piece)** — after the map
   film, a piece with a written story continues into its own story instead of
   the plain details section: full-screen chapters in large type, each pinned
   and scroll-played (native scroll, pin only). Owner's brief: the story must
@@ -199,6 +199,14 @@ DOKU" for exactly this reason).
     hides over the photos and outside the story. Desktop only.
   - Both hold buttons (`#hold-form`, `form[data-hold]`) hold the piece and
     both then read "Held for you".
+  - **Endings by status:** available → closing line + "Hold this DOKU";
+    claimed → the epitaph (where it is now), "Claimed. It does not return.",
+    no hold; coming-soon → closing line + "Notify me when it's found" (jumps
+    to the film's notify form). A story without a `record` chapter carries
+    the notes (wishlist) and waitlist in its finale instead.
+  - Claimed pieces have no story text in the DB, so their stories are built
+    from the epitaph + city craft notes only; coming-soon ones from the
+    teaser. Keep it that way — don't fill gaps with plausible detail.
   - **To add a story:** write its chapters into `stories.json` from the
     piece's own copy; the piece needs a rendered origin map (the story sits
     after the film).
