@@ -18,6 +18,38 @@ import { Flip } from 'gsap/Flip';
 import { BEAT, EIGHTH } from './beat';
 
 gsap.registerPlugin(ScrollTrigger, SplitText, Flip);
+
+// Scroll is a film both ways (owner, 2026-10-28): a reveal plays when it
+// enters from below AND when it comes back in from above, and resets once
+// it's fully off screen — so scrolling up replays the page instead of
+// finding it already shown. Scrubbed scenes reverse on their own.
+export const BOTH_WAYS = 'play reset play reset';
+ScrollTrigger.defaults({ toggleActions: BOTH_WAYS });
+
+/** Callbacks for a ScrollTrigger that drives a paused timeline both ways. */
+export const bothWays = (tl: gsap.core.Animation, reset?: () => void) => ({
+  onEnter: () => tl.restart(true),
+  onEnterBack: () => tl.restart(true),
+  onLeave: () => { tl.pause(0); reset?.(); },
+  onLeaveBack: () => { tl.pause(0); reset?.(); },
+});
+
+/** The same for a batch: one timeline per element, made on first entry and
+ *  replayed (staggered across the row) each time the row comes into view. */
+export function batchBothWays(
+  targets: Element[] | string,
+  vars: { start: string; make: (el: Element) => gsap.core.Timeline; stagger?: number; reset?: (el: Element) => void },
+): void {
+  const made = new Map<Element, gsap.core.Timeline>();
+  const get = (el: Element) => {
+    let tl = made.get(el);
+    if (!tl) { tl = vars.make(el).pause(0); made.set(el, tl); }
+    return tl;
+  };
+  const play = (els: Element[]) => els.forEach((el, i) => get(el).delay(i * (vars.stagger ?? 0)).restart(true));
+  const reset = (els: Element[]) => els.forEach((el) => { if (made.has(el)) { get(el).pause(0); vars.reset?.(el); } });
+  ScrollTrigger.batch(targets, { start: vars.start, onEnter: play, onEnterBack: play, onLeave: reset, onLeaveBack: reset });
+}
 // Hits snap in and settle (house curve); scrubbed moves stay linear so the
 // scroll wheel *is* the easing.
 gsap.defaults({ ease: 'expo.out' });
@@ -261,28 +293,26 @@ export function withFlip(targets: Element[], mutate: () => void): void {
 export function ready(): void {
   window.__dokuMotionReady = true;
   // Cards no scene claimed: the standard card entrance, a row at a time.
-  ScrollTrigger.batch('.item:not([data-m]), .archive-item:not([data-m])', {
+  batchBothWays('.item:not([data-m]), .archive-item:not([data-m])', {
     start: 'top 90%',
-    once: true,
-    onEnter: (els) =>
-      els.forEach((el, i) =>
-        el.classList.contains('archive-item') ? revealArchiveCard(el, i * EIGHTH * 0.5) : revealCard(el, i * EIGHTH * 0.5),
-      ),
+    stagger: EIGHTH * 0.5,
+    make: (el) => (el.classList.contains('archive-item') ? revealArchiveCard(el) : revealCard(el)),
+    reset: (el) => el.classList.remove('m-signed'),
   });
   // Batch selectors are resolved once, now — so exclude frames that live inside
   // cards (the card entrance above owns those).
   const loose = Array.from(document.querySelectorAll('[data-reveal]:not([data-m])')).filter(
     (el) => !el.closest('.item, .archive-item'),
   );
-  if (loose.length) ScrollTrigger.batch(loose, {
+  if (loose.length) batchBothWays(loose, {
     start: 'top 88%',
-    once: true,
-    onEnter: (els) =>
-      els.forEach((el, i) => {
-        if (el.getAttribute('data-reveal') !== 'frame') return el.classList.add('is-in');
-        wipeFrame(el, i * EIGHTH * 0.5);
-        snapBrackets(el, { delay: 0.12 + i * EIGHTH * 0.5 });
-      }),
+    stagger: EIGHTH * 0.5,
+    make: (el) => {
+      const tl = gsap.timeline();
+      if (el.getAttribute('data-reveal') !== 'frame') return tl.call(() => el.classList.add('is-in'));
+      return tl.add(wipeFrame(el), 0).add(snapBrackets(el), 0.12);
+    },
+    reset: (el) => el.classList.remove('is-in'),
   });
   // Scenes may create plain triggers before a later pin (e.g. a chapter's
   // paragraphs before its pull quote pins); sort into page order so every

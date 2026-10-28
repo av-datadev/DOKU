@@ -19,6 +19,7 @@ import {
   readingLamp,
   frameParallax,
   ready,
+  batchBothWays,
 } from '../core';
 import { EIGHTH } from '../beat';
 import { prepareStory, playStory, railFor } from './story';
@@ -54,10 +55,10 @@ function readingScene(root: ParentNode) {
   const rows = Array.from(root.querySelectorAll('.spec-row'));
   if (rows.length) {
     gsap.set(rows, { opacity: 0 });
-    ScrollTrigger.batch(rows, {
+    batchBothWays(rows, {
       start: 'top 92%',
-      once: true,
-      onEnter: (els) => gsap.fromTo(els, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.6, stagger: EIGHTH / 2 }),
+      stagger: EIGHTH / 2,
+      make: (el) => gsap.timeline().fromTo(el, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.6 }),
     });
   }
 }
@@ -161,7 +162,7 @@ export async function initItem(): Promise<void> {
       const craft = details.querySelector('.details-craft');
       if (craft) gsap.fromTo(craft.children, { opacity: 0, y: 12 }, {
         opacity: 1, y: 0, duration: 0.8, stagger: EIGHTH / 2,
-        scrollTrigger: { trigger: craft, start: 'top 85%', once: true },
+        scrollTrigger: { trigger: craft, start: 'top 85%' },
       });
     }
     document.querySelectorAll('.grid .frame').forEach(frameParallax);

@@ -5,7 +5,7 @@
 // "Closed." gets the page's single colour flip; Chapter V counts the archive
 // and drains the palette toward /archive.
 
-import { gsap, ScrollTrigger, motionOn, fontsReady, splitLines, countUp, readingLamp, ready } from '../core';
+import { gsap, ScrollTrigger, motionOn, fontsReady, splitLines, countUp, readingLamp, ready, bothWays, batchBothWays } from '../core';
 import { BEAT, EIGHTH, isPhone, scrollBeats } from '../beat';
 
 const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) =>
@@ -37,7 +37,7 @@ function stats() {
     start: 'center center',
     end: scrollBeats(4),
     pin: !isPhone(),
-    onEnter: () => tl.play(),
+    ...bothWays(tl),
   });
 }
 
@@ -47,27 +47,23 @@ function chapter(ch: HTMLElement) {
   const tl = gsap.timeline({ paused: true });
   if (label) tl.fromTo(label, { scale: isPhone() ? 3 : 6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, ease: 'expo.out' }, 0);
   if (h2) tl.from(splitLines(h2).lines, { yPercent: 105, duration: 0.8, stagger: EIGHTH / 3 }, EIGHTH);
-  ScrollTrigger.create({ trigger: ch, start: 'top 72%', once: true, onEnter: () => tl.play() });
+  ScrollTrigger.create({ trigger: ch, start: 'top 72%', ...bothWays(tl) });
 
   const paras = $$(':scope > .prov-chapter-body > p', ch);
   if (paras.length) {
     gsap.set(paras, { opacity: 0 });
-    ScrollTrigger.batch(paras, {
+    batchBothWays(paras, {
       start: 'top 90%',
-      once: true,
-      onEnter: (els) => gsap.fromTo(els, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.9, stagger: EIGHTH }),
+      stagger: EIGHTH,
+      make: (el) => gsap.timeline().fromTo(el, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.9 }),
     });
   }
 
   const items = $$('.prov-criteria li', ch);
   if (items.length) {
     gsap.set(items, { opacity: 0 });
-    ScrollTrigger.create({
-      trigger: items[0],
-      start: 'top 85%',
-      once: true,
-      onEnter: () => gsap.fromTo(items, { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.5, stagger: BEAT }),
-    });
+    const list = gsap.timeline({ paused: true }).fromTo(items, { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.5, stagger: BEAT });
+    ScrollTrigger.create({ trigger: items[0], start: 'top 85%', ...bothWays(list) });
   }
 }
 
@@ -88,22 +84,22 @@ function pullQuotes(veil: HTMLElement) {
 function closedFlash(flash: HTMLElement) {
   const word = document.querySelector('.closed-word');
   if (!word) return;
-  ScrollTrigger.create({
-    trigger: word,
-    start: 'top 55%',
-    once: true,
-    onEnter: () =>
-      gsap
-        .timeline()
-        .set(flash, { visibility: 'visible' })
-        .fromTo(flash, { scale: 1.04 }, { scale: 1, duration: BEAT * 0.8 }, 0)
-        .set(flash, { visibility: 'hidden' }, BEAT),
-  });
+  const flashTl = gsap
+    .timeline({ paused: true })
+    .set(flash, { visibility: 'visible' })
+    .fromTo(flash, { scale: 1.04 }, { scale: 1, duration: BEAT * 0.8 }, 0)
+    .set(flash, { visibility: 'hidden' }, BEAT);
+  ScrollTrigger.create({ trigger: word, start: 'top 55%', ...bothWays(flashTl, () => gsap.set(flash, { visibility: 'hidden' })) });
 }
 
 function recordAndDrain() {
   const strong = document.querySelector('[data-count]');
-  if (strong) ScrollTrigger.create({ trigger: strong, start: 'top 85%', once: true, onEnter: () => countUp(strong, { duration: 1.4 }) });
+  if (strong) {
+    let count: gsap.core.Tween | null | undefined;
+    const go = () => { count ??= countUp(strong, { duration: 1.4 }); count?.restart(true); };
+    const stop = () => count?.pause(0);
+    ScrollTrigger.create({ trigger: strong, start: 'top 85%', onEnter: go, onEnterBack: go, onLeave: stop, onLeaveBack: stop });
+  }
   const chapters = $$('.prov-chapter');
   const last = chapters[chapters.length - 1];
   const app = document.getElementById('app');

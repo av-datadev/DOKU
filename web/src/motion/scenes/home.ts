@@ -3,7 +3,7 @@
 //   4 tracking shot · 5 sketches draw · 6 archive drain · 7 final frame.
 // Every scene checks its section exists: empty catalogue sections skip cleanly.
 
-import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, drawSketch, revealCard, revealArchiveCard, ready, splitChars } from '../core';
+import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, drawSketch, revealCard, revealArchiveCard, ready, splitChars, bothWays, batchBothWays } from '../core';
 import { BEAT, EIGHTH, beatPx, scrollBeats } from '../beat';
 
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
@@ -165,7 +165,7 @@ function trackingShot(carousel: HTMLElement) {
 
     if (distance() < 40) {
       // Nothing to pan across — just land the cards on the beat.
-      ScrollTrigger.create({ trigger: carousel, start: 'top 80%', once: true, onEnter: reveal });
+      batchBothWays(cards, { start: 'top 90%', stagger: EIGHTH * 0.5, make: (el) => revealCard(el) });
       return;
     }
 
@@ -193,11 +193,12 @@ function drain(section: HTMLElement) {
   gsap.fromTo(section, { '--gold': '#B08D57' }, { '--gold': '#6B6258', ease: 'none', scrollTrigger: st });
   const glow = $('#ambient-glow');
   if (glow) gsap.fromTo(glow, { opacity: 1 }, { opacity: 0.3, ease: 'none', scrollTrigger: { ...st } });
-  ScrollTrigger.batch($$('.archive-item', section), {
+  batchBothWays($$('.archive-item', section), {
     start: 'top 88%',
-    once: true,
+    stagger: BEAT * 0.5,
     // slower than anywhere else: this is the quiet before the ending
-    onEnter: (els) => els.forEach((el, i) => revealArchiveCard(el, i * BEAT * 0.5).timeScale(0.7)),
+    make: (el) => revealArchiveCard(el).timeScale(0.7),
+    reset: (el) => el.classList.remove('m-signed'),
   });
 }
 
@@ -208,7 +209,7 @@ function finale(section: HTMLElement) {
   if (!mark || !h2) return;
   const tl = gsap.timeline({ paused: true });
   tl.from([mark, h2], { opacity: 0, y: 16, duration: 0.8, stagger: EIGHTH }, EIGHTH);
-  ScrollTrigger.create({ trigger: section, start: 'center 65%', once: true, onEnter: () => tl.play() });
+  ScrollTrigger.create({ trigger: section, start: 'center 65%', ...bothWays(tl) });
 }
 
 export async function initHome(): Promise<void> {

@@ -229,7 +229,7 @@ export function playStory(story: HTMLElement): void {
       defaults: { ease: 'none' },
       scrollTrigger: fits
         ? { trigger: s, start: `top ${header}px`, end: scrollBeats(b.beats), scrub: 0.8, pin: true, anticipatePin: 1, invalidateOnRefresh: true }
-        : { trigger: s, start: 'top 75%', toggleActions: 'play none none none' },
+        : { trigger: s, start: 'top 75%' }, // plays in both ways (BOTH_WAYS default)
     });
     b.build(tl, s);
     if (!fits) tl.timeScale(1.8);

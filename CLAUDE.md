@@ -91,6 +91,13 @@ DOKU" for exactly this reason).
   word cuts → lit manifesto → horizontal tracking shot → sketch draws →
   archive colour drain → bracket-locked final frame. Spec:
   `docs/superpowers/specs/2026-09-26-scroll-motion-design.md`.
+  - **Both directions (2026-10-28):** every reveal replays when scrolling
+    back up, not just on the way down. `ScrollTrigger.defaults` sets
+    `toggleActions: 'play reset play reset'` (`BOTH_WAYS` in `core.ts`): play
+    on entering from below or above, reset once fully off screen. Paused
+    timelines use `bothWays(tl)`; batched reveals (cards, frames, paragraphs)
+    use `batchBothWays()`. Never use `once: true` on a reveal. Scrubbed/pinned
+    scenes already run backwards on their own.
   - **Still no scroll hijack:** native scroll only — pinned scenes (GSAP
     `pin`) are fine, but never `snap`, smooth-scroll libs, or wheel capture.
   - **Gate:** `Base.astro`'s `motion` prop (`'full'` | `'calm'`, default
