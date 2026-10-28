@@ -30,7 +30,7 @@ function hook(hero: HTMLElement): Promise<void> {
     .set(words, { opacity: 0 })
     .set(chars, { opacity: 0 })
     .fromTo(line, { scaleX: 0, transformOrigin: '0 50%' }, { scaleX: 1, duration: 0.25 }, 0)
-    .to(one, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.22 }, EIGHTH)
+    .to(one, { clipPath: 'inset(-10% -25% -10% -25%)', duration: 0.22 }, EIGHTH)
     .to(line, { opacity: 0, duration: 0.3 }, EIGHTH)
     .fromTo(slash, { opacity: 0, x: '0.4em' }, { opacity: 1, x: 0, duration: 0.16, ease: 'power4.out' }, BEAT)
     .to(num, { scale: 0.12, opacity: 0, duration: 0.32, ease: 'power3.in' }, BEAT * 1.6)

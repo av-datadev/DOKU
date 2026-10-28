@@ -58,8 +58,13 @@
   font-family: 'Fraunces', serif; font-weight: 200; line-height: 0.8;
   font-size: min(78svh, 70vw); color: var(--ivory); letter-spacing: -0.04em;
 }
-.hook-num .hook-one { display: inline-block; clip-path: inset(0 0 100% 0); }
-.hook-num .hook-slash { display: inline-block; font-style: italic; color: var(--gold); opacity: 0; }
+/* The roman 1 is wiped in top-down by its clip-path; the clip runs past the
+   glyph's box (negative insets) so its serifs aren't trimmed once revealed. */
+.hook-num .hook-one { display: inline-block; clip-path: inset(-10% -25% 110% -25%); }
+/* The italic 1 leans past its own box. While it's animating, browsers draw it
+   as a layer the size of that box (Safari visibly), cutting the foot off —
+   so pad the box over the overhang and pull the spacing back. */
+.hook-num .hook-slash { display: inline-block; font-style: italic; color: var(--gold); opacity: 0; padding: 0 .2em 0 .05em; margin: 0 -.2em 0 -.05em; }
 .hero-brand .ch { display: inline-block; }
 
 .motion .hero-brand,
