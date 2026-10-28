@@ -164,10 +164,10 @@ DOKU" for exactly this reason).
     `origin-maps.json`. Visitors never call OSM. ODbL requires the
     "Map data © OpenStreetMap contributors" credit, which is on the page.
     Keep it.
-  - Rendered: 007 Jaipur, 009 Mannar, 014 Kyoto, 015 Marrakech, 016 Oaxaca,
-    017 Athens, 021 Oslo. **Pending (Overpass timed out):** 018 London, 003
-    Lisbon, 019 Tokyo, 012 Cusco, 020 Aberdeen. Their data is already in
-    `origins.json`, so just re-run the script for those skus.
+  - Rendered: 003 Lisbon, 007 Jaipur, 009 Mannar, 012 Cusco, 014 Kyoto,
+    015 Marrakech, 016 Oaxaca, 017 Athens, 019 Tokyo, 020 Aberdeen, 021 Oslo.
+    **Pending (Overpass overloaded twice):** 018 London — its data is already
+    in `origins.json`; re-run `node scripts/build-origin-maps.mjs 018`.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. ~~**Never display an image of an object DOKU doesn't physically own**, even
@@ -199,6 +199,28 @@ DOKU" for exactly this reason).
    revoked from `anon`; Razorpay is now the *only* reserve path, not a staged
    alternative. Never let copy imply Razorpay is processing live payments
    until `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are actually live values.
+
+## Speed — the edge cache (2026-10-28)
+Visitors from India are served from Cloudflare's **Marseille** location while
+Supabase is in **Sydney** (`ap-southeast-2`), so one catalog read is a ~2s
+round trip. Before this, every SSR page paid it on every click (item pages
+twice, plus a redirected Frankfurter call) — 2–4s before any HTML.
+- `web/src/lib/edge-cache.ts`: `cached(key, ttl, load)` — isolate memory +
+  the location's Cache API, **stale-while-revalidate**: older than `ttl` is
+  still served and refreshed behind the response (`ctx.waitUntil`, wired
+  per request in `middleware.ts` via AsyncLocalStorage); older than 10 min
+  is never served. Failed loads are never cached.
+- Catalog: 60s (`fetchProducts()`); rates: 1h (`lib/rates.ts`, server only —
+  `lib/currency.ts` stays browser-safe). **Fresh reads** (`{ fresh: true }`):
+  `/api/cart` hold, `/checkout`, `/confirmation`. Status changes (a sale, an
+  admin edit) can take up to a minute to show on browsing pages.
+- Rates come from `api.frankfurter.dev/v1` directly (`.app` 301-redirects
+  without CORS, which also broke the browser fetch).
+- Measured after deploy: browsing pages ~0.3–0.5s server time (warm), same
+  as `/privacy` which never touches the database.
+- **Still heavy:** 017 and 018 store their photos as base64 data URIs in
+  the DB `image` column (~330 KB embedded in every page that shows them,
+  uncacheable). Move them to files once the images themselves are settled.
 
 ## Data model
 Catalog data lives in a Supabase Postgres table, `public.products`
