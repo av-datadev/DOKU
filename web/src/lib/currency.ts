@@ -2,6 +2,8 @@
 // (the currency switcher / region bar re-render prices in place, no reload).
 // Isomorphic on purpose: no server-only APIs, so the exact same formatting
 // logic runs both places and can never drift.
+import { cached } from './edge-cache';
+
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'JPY'] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number];
 
@@ -31,17 +33,21 @@ export function formatMoney(
   return SYMBOLS[currency] + converted.toLocaleString(LOCALES[currency]);
 }
 
-// Live rates, same 1.5s-timeout-then-fallback shape as fetchProducts().
+// Live rates, cached for an hour (they move once a day). frankfurter.app now
+// 301-redirects to frankfurter.dev, so ask .dev directly — the redirect hop
+// was costing a round trip on every page. 1.5s timeout, then the fallback.
 export async function fetchRates(): Promise<Record<string, number>> {
-  try {
-    const ctl = new AbortController();
-    const tid = setTimeout(() => ctl.abort(), 1500);
-    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,INR,JPY', { signal: ctl.signal });
-    clearTimeout(tid);
-    const data = (await res.json()) as { rates?: Record<string, number> };
-    if (data?.rates) return { USD: 1, ...data.rates };
-  } catch {
-    /* keep hardcoded fallback */
-  }
-  return FALLBACK_RATES;
+  const rates = await cached('rates', 3600, async () => {
+    try {
+      const ctl = new AbortController();
+      const tid = setTimeout(() => ctl.abort(), 1500);
+      const res = await fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=EUR,GBP,INR,JPY', { signal: ctl.signal });
+      clearTimeout(tid);
+      const data = (await res.json()) as { rates?: Record<string, number> };
+      return data?.rates ? { USD: 1, ...data.rates } : null;
+    } catch {
+      return null;
+    }
+  });
+  return rates ?? FALLBACK_RATES;
 }

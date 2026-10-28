@@ -9,7 +9,7 @@ import { phoneAuthEnabled } from '../lib/flags';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const skus = await decodeCart(Astro.cookies.get(CART_COOKIE)?.value, secret);
-const products = await fetchProducts();
+const products = await fetchProducts({ fresh: true });
 const byId = new Map(products.map((p) => [p.sku, p]));
 const items = skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
 const total = items.reduce((sum, p) => sum + (p.price ?? 0), 0);

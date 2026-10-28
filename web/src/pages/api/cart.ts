@@ -30,7 +30,7 @@ export const POST: APIRoute = async ({ request, cookies, locals, url }) => {
     next = current.filter((s) => s !== sku);
   } else {
     // hold: only add an item that is actually available right now.
-    const product = await fetchProduct(sku);
+    const product = await fetchProduct(sku, { fresh: true });
     if (!product) error = 'Unknown item';
     else if (product.status !== 'available') error = 'This DOKU is no longer available';
     else if (!current.includes(sku)) next = [...current, sku];

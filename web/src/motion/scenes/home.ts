@@ -3,7 +3,7 @@
 //   4 tracking shot · 5 sketches draw · 6 archive drain · 7 final frame.
 // Every scene checks its section exists: empty catalogue sections skip cleanly.
 
-import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, drawSketch, revealCard, revealArchiveCard, ready } from '../core';
+import { gsap, ScrollTrigger, SplitText, motionOn, fontsReady, own, ownAll, drawSketch, revealCard, revealArchiveCard, ready, splitChars } from '../core';
 import { BEAT, EIGHTH, beatPx, scrollBeats } from '../beat';
 
 const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector<T>(sel);
@@ -66,7 +66,7 @@ function pushThroughO(hero: HTMLElement, hookDone: Promise<void>) {
     const r = o.getBoundingClientRect();
     return `${r.left - b.left + r.width / 2}px ${r.top - b.top + r.height * 0.52}px`;
   };
-  const split = SplitText.create(h1, { type: 'chars,words', mask: 'words' });
+  const split = splitChars(h1);
   const italic = split.chars.filter((c) => c.closest('em'));
   const roman = split.chars.filter((c) => !c.closest('em'));
   gsap.set(h1, { opacity: 1 });

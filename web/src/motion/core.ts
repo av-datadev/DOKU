@@ -186,9 +186,18 @@ export function stamp(el: Element, opts: { dull?: boolean; delay?: number } = {}
   );
 }
 
+/** A mask clips at the box the text advances by, but Fraunces italics lean
+ *  past it — the "o" of "So" and the "e" of "are" lost their right edge. Pad
+ *  each mask sideways (and pull it back with a negative margin, so spacing is
+ *  unchanged) to give the overhang room. */
+export const roomForItalics = <T extends SplitText>(split: T): T => {
+  split.masks.forEach((m) => gsap.set(m, { paddingInline: '0.18em', marginInline: '-0.18em' }));
+  return split;
+};
+
 /** Characters / lines, masked so they rise out of their own baseline. */
-export const splitChars = (el: Element) => SplitText.create(el, { type: 'chars,words', mask: 'words' });
-export const splitLines = (el: Element) => SplitText.create(el, { type: 'lines', mask: 'lines' });
+export const splitChars = (el: Element) => roomForItalics(SplitText.create(el, { type: 'chars,words', mask: 'words' }));
+export const splitLines = (el: Element) => roomForItalics(SplitText.create(el, { type: 'lines', mask: 'lines' }));
 
 /** Draw a section head's gold hairline (reveal.css transition) at a moment. */
 export function lineIn(el: Element | null, delay = 0): void {

@@ -11,7 +11,7 @@ const order = await decodeOrder(Astro.cookies.get(LAST_ORDER_COOKIE)?.value, sec
 
 let items: NonNullable<Awaited<ReturnType<typeof fetchProducts>>[number]>[] = [];
 if (order) {
-  const products = await fetchProducts();
+  const products = await fetchProducts({ fresh: true });
   const byId = new Map(products.map((p) => [p.sku, p]));
   items = order.skus.map((s) => byId.get(s)).filter((p): p is NonNullable<typeof p> => !!p);
 }

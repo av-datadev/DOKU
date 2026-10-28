@@ -5,7 +5,7 @@ import ItemCard from '../../components/ItemCard.astro';
 import ItemFilm from '../../components/ItemFilm.astro';
 import ItemBuy from '../../components/ItemBuy.astro';
 import ItemWaitlist from '../../components/ItemWaitlist.astro';
-import { fetchProducts, fetchProduct } from '../../lib/products';
+import { fetchProducts } from '../../lib/products';
 import { originFor, regionOf } from '../../lib/origins';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
 import { serverEnv } from '../../lib/env';
@@ -15,7 +15,9 @@ import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/
 // rendered map open with the map film (ItemFilm); the rest keep the two-column
 // frame + info layout until their map exists.
 const { sku } = Astro.params;
-const product = sku ? await fetchProduct(sku) : null;
+// One catalog read (cached at the edge) serves both this piece and "related".
+const allProducts = await fetchProducts();
+const product = sku ? allProducts.find((x) => x.sku === sku) ?? null : null;
 if (!product) {
   return new Response(null, { status: 404, statusText: 'Not found' });
 }
@@ -46,7 +48,6 @@ const specs = Object.entries(p.specs ?? {}).filter(
   ([k, v]) => !(k.toLowerCase() === 'origin' && city && v.includes(city)),
 );
 
-const allProducts = await fetchProducts();
 const related = allProducts.filter((x) => x.status === 'available' && x.sku !== p.sku).slice(0, 3);
 
 const currency = currencyFromCookieValue(Astro.cookies.get(CURRENCY_COOKIE)?.value);

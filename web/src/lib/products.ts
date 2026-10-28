@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { cached } from './edge-cache';
 
 export type ProductStatus = 'available' | 'coming-soon' | 'claimed' | 'reserved';
 
@@ -48,21 +49,32 @@ const withDefaultImage = (p: Product): Product =>
 export const matImage = (p: Product): string | null =>
   p.image === `/products/${p.sku}.jpg` ? `/products/mat/${p.sku}.jpg` : p.image;
 
-// Server-side fetch used by SSR pages. RLS allows anon SELECT on products.
-export async function fetchProducts(): Promise<Product[]> {
+// Catalog freshness for browsing pages. A status change (a sale, an admin
+// edit) shows on the collection and item pages within this many seconds.
+const CATALOG_TTL = 60;
+
+async function loadProducts(): Promise<Product[] | null> {
   try {
     const { data, error } = await supabase()
       .from('products')
       .select('*')
       .order('sort_order', { ascending: true });
-    if (error || !data || data.length === 0) return FALLBACK_PRODUCTS.map(withDefaultImage);
-    return (data as Product[]).map(withDefaultImage);
+    if (error || !data || data.length === 0) return null;
+    return data as Product[];
   } catch {
-    return FALLBACK_PRODUCTS.map(withDefaultImage);
+    return null;
   }
 }
 
-export async function fetchProduct(sku: string): Promise<Product | null> {
-  const all = await fetchProducts();
+// Server-side fetch used by SSR pages. RLS allows anon SELECT on products.
+// Browsing pages read through the edge cache (lib/edge-cache.ts); anything on
+// the payment path passes { fresh: true } so a status is never stale there.
+export async function fetchProducts({ fresh = false }: { fresh?: boolean } = {}): Promise<Product[]> {
+  const data = fresh ? await loadProducts() : await cached('products', CATALOG_TTL, loadProducts);
+  return (data ?? FALLBACK_PRODUCTS).map(withDefaultImage);
+}
+
+export async function fetchProduct(sku: string, opts: { fresh?: boolean } = {}): Promise<Product | null> {
+  const all = await fetchProducts(opts);
   return all.find((p) => p.sku === sku) ?? null;
 }
