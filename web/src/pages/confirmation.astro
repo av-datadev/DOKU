@@ -4,7 +4,8 @@ import CartRow from '../components/CartRow.astro';
 import { fetchProducts } from '../lib/products';
 import { LAST_ORDER_COOKIE, decodeOrder } from '../lib/order';
 import { serverEnv } from '../lib/env';
-import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { fetchRates } from '../lib/rates';
 
 const secret = serverEnv(Astro.locals, 'CART_SECRET');
 const order = await decodeOrder(Astro.cookies.get(LAST_ORDER_COOKIE)?.value, secret);

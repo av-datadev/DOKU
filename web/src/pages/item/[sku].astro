@@ -9,7 +9,8 @@ import { fetchProducts } from '../../lib/products';
 import { originFor, regionOf } from '../../lib/origins';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
 import { serverEnv } from '../../lib/env';
-import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
+import { currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
+import { fetchRates } from '../../lib/rates';
 
 // Full object page — SSR per sku, real indexable URL. Pieces whose city has a
 // rendered map open with the map film (ItemFilm); the rest keep the two-column

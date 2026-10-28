@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getUser } from './lib/auth';
 import { captureError } from './lib/sentry';
+import { withBackground } from './lib/edge-cache';
 
 // Every page is SSR (astro.config output:'server'). This runs once per request
 // and does two things:
@@ -31,7 +32,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // the free-tier event quota.
   let response: Response;
   try {
-    response = await next();
+    // Lets lib/edge-cache.ts refresh the catalog after the response is sent.
+    const ctx = context.locals.runtime?.ctx;
+    response = await withBackground(ctx && ((p) => ctx.waitUntil(p)), () => next());
   } catch (err) {
     await captureError(err, { locals: context.locals, request: context.request, tags: { where: 'ssr-throw' } });
     throw err;

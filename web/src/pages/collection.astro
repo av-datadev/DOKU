@@ -4,7 +4,8 @@ import ItemCard from '../components/ItemCard.astro';
 import { fetchProducts } from '../lib/products';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
-import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { fetchRates } from '../lib/rates';
 
 const products = await fetchProducts();
 const available = products.filter((p) => p.status === 'available');

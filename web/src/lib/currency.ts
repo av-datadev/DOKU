@@ -2,8 +2,6 @@
 // (the currency switcher / region bar re-render prices in place, no reload).
 // Isomorphic on purpose: no server-only APIs, so the exact same formatting
 // logic runs both places and can never drift.
-import { cached } from './edge-cache';
-
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'JPY'] as const;
 export type CurrencyCode = (typeof CURRENCIES)[number];
 
@@ -33,21 +31,23 @@ export function formatMoney(
   return SYMBOLS[currency] + converted.toLocaleString(LOCALES[currency]);
 }
 
-// Live rates, cached for an hour (they move once a day). frankfurter.app now
-// 301-redirects to frankfurter.dev, so ask .dev directly — the redirect hop
-// was costing a round trip on every page. 1.5s timeout, then the fallback.
+// Live rates, straight from Frankfurter. frankfurter.app now 301-redirects to
+// frankfurter.dev, so ask .dev directly (the redirect carried no CORS header,
+// which broke the browser fetch). 1.5s timeout, then null. Server pages read
+// these through the edge cache instead — see lib/rates.ts.
+export async function loadRates(): Promise<Record<string, number> | null> {
+  try {
+    const ctl = new AbortController();
+    const tid = setTimeout(() => ctl.abort(), 1500);
+    const res = await fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=EUR,GBP,INR,JPY', { signal: ctl.signal });
+    clearTimeout(tid);
+    const data = (await res.json()) as { rates?: Record<string, number> };
+    return data?.rates ? { USD: 1, ...data.rates } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchRates(): Promise<Record<string, number>> {
-  const rates = await cached('rates', 3600, async () => {
-    try {
-      const ctl = new AbortController();
-      const tid = setTimeout(() => ctl.abort(), 1500);
-      const res = await fetch('https://api.frankfurter.dev/v1/latest?from=USD&to=EUR,GBP,INR,JPY', { signal: ctl.signal });
-      clearTimeout(tid);
-      const data = (await res.json()) as { rates?: Record<string, number> };
-      return data?.rates ? { USD: 1, ...data.rates } : null;
-    } catch {
-      return null;
-    }
-  });
-  return rates ?? FALLBACK_RATES;
+  return (await loadRates()) ?? FALLBACK_RATES;
 }

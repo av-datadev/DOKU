@@ -18,6 +18,6 @@ declare namespace App {
     user: { id: string; email: string | null } | null;
     supabase: import('@supabase/supabase-js').SupabaseClient;
     // Cloudflare adapter runtime (secrets like CART_SECRET live on runtime.env).
-    runtime?: { env?: Record<string, unknown> };
+    runtime?: { env?: Record<string, unknown>; ctx?: { waitUntil(p: Promise<unknown>): void } };
   }
 }

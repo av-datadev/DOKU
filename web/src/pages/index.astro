@@ -3,7 +3,8 @@ import Base from '../layouts/Base.astro';
 import ItemCard from '../components/ItemCard.astro';
 import ArchiveCard from '../components/ArchiveCard.astro';
 import { fetchProducts } from '../lib/products';
-import { fetchRates, currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { currencyFromCookieValue, CURRENCY_COOKIE } from '../lib/currency';
+import { fetchRates } from '../lib/rates';
 import { CART_COOKIE, decodeCart } from '../lib/cart';
 import { serverEnv } from '../lib/env';
 
