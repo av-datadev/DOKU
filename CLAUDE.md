@@ -164,10 +164,10 @@ DOKU" for exactly this reason).
     `origin-maps.json`. Visitors never call OSM. ODbL requires the
     "Map data © OpenStreetMap contributors" credit, which is on the page.
     Keep it.
-  - Rendered: 003 Lisbon, 007 Jaipur, 009 Mannar, 012 Cusco, 014 Kyoto,
-    015 Marrakech, 016 Oaxaca, 017 Athens, 019 Tokyo, 020 Aberdeen, 021 Oslo.
-    **Pending (Overpass overloaded twice):** 018 London — its data is already
-    in `origins.json`; re-run `node scripts/build-origin-maps.mjs 018`.
+  - Rendered: every current item — 003 Lisbon, 007 Jaipur, 009 Mannar,
+    012 Cusco, 014 Kyoto, 015 Marrakech, 016 Oaxaca, 017 Athens, 018 London,
+    019 Tokyo, 020 Aberdeen, 021 Oslo. If Overpass is overloaded the script
+    skips the city; just run it again later.
 
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. ~~**Never display an image of an object DOKU doesn't physically own**, even
