@@ -5,8 +5,10 @@ import ItemCard from '../../components/ItemCard.astro';
 import ItemFilm from '../../components/ItemFilm.astro';
 import ItemBuy from '../../components/ItemBuy.astro';
 import ItemWaitlist from '../../components/ItemWaitlist.astro';
+import ItemStory from '../../components/ItemStory.astro';
 import { fetchProducts } from '../../lib/products';
 import { originFor, regionOf } from '../../lib/origins';
+import { storyFor } from '../../lib/stories';
 import { CART_COOKIE, decodeCart } from '../../lib/cart';
 import { serverEnv } from '../../lib/env';
 import { currencyFromCookieValue, CURRENCY_COOKIE } from '../../lib/currency';
@@ -43,6 +45,8 @@ const statusLabel = isAvailable
 // The place is said once. With a map, the film's corner caption says it; without
 // one, this line does. The "Origin" spec row is dropped when it only repeats it.
 const origin = originFor(p.sku);
+// A written story replaces the plain details section (it carries the same facts).
+const story = origin ? storyFor(p.sku) : null;
 const city = (p.origin ?? '').split(',')[0].trim();
 const originLine = isComingSoon ? "We haven't found this one yet." : p.origin;
 const specs = Object.entries(p.specs ?? {}).filter(
@@ -78,6 +82,9 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
         <ItemBuy slot="buy" part="action" {...buy} />
       </ItemFilm>
 
+      {story ? (
+        <ItemStory product={p} origin={origin} chapters={story} specs={specs} buy={buy} canWaitlist={canWaitlist} inCart={inCart} />
+      ) : (
       <section class="item-details wrap" data-details>
         <div class="details-story">
           {p.story && p.story.length > 0 && (
@@ -116,6 +123,7 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
           </div>
         </div>
       </section>
+      )}
     </>
   ) : (
     <>
@@ -189,11 +197,11 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
     }
   }
 
-  const holdForm = document.getElementById('hold-form') as HTMLFormElement | null;
-  holdForm?.addEventListener('submit', async (e) => {
+  // Two hold buttons on story pages (the film's and the finale's); either one
+  // holds the piece, and both then read "Held for you".
+  const holdForms = document.querySelectorAll<HTMLFormElement>('#hold-form, form[data-hold]');
+  holdForms.forEach((holdForm) => holdForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('hold-btn') as HTMLButtonElement | null;
-    const label = document.getElementById('hold-btn-label');
     const sub = document.getElementById('hold-sub');
     try {
       const res = await fetch('/api/cart', {
@@ -203,8 +211,8 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
       });
       const data = await res.json();
       if (res.ok) {
-        if (btn) btn.disabled = true;
-        if (label) label.textContent = 'Held for you';
+        document.querySelectorAll<HTMLButtonElement>('#hold-btn, [data-hold-btn]').forEach((b) => (b.disabled = true));
+        document.querySelectorAll('#hold-btn-label, [data-hold-label]').forEach((l) => (l.textContent = 'Held for you'));
         if (sub) sub.textContent = 'Review it in your cart to confirm the claim.';
         setBadge(data.count);
       } else if (sub) {
@@ -214,7 +222,7 @@ const buy = { product: p, currency, rates, inCart, signedIn, isWishlisted };
       // Network failure → fall back to a normal submit (server redirect).
       holdForm.submit();
     }
-  });
+  }));
 
   // "Notify me" for coming-soon items → Web3Forms, same as the live site.
   const notifyForm = document.getElementById('notify-form') as HTMLFormElement | null;

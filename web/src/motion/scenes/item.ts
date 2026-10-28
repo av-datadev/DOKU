@@ -21,6 +21,7 @@ import {
   ready,
 } from '../core';
 import { EIGHTH } from '../beat';
+import { prepareStory, playStory, railFor } from './story';
 
 /** The living photo: no footage, just the still breathing — the camera drifts
  *  slowly in and across, and a band of lamplight crosses the surface every
@@ -139,12 +140,21 @@ async function filmScene(film: HTMLElement) {
 }
 
 export async function initItem(): Promise<void> {
-  if (!motionOn()) return;
+  // The story's drawn art and its chapter list work with or without motion.
+  const story = prepareStory();
+  if (!motionOn()) {
+    if (story) railFor(story);
+    return;
+  }
 
-  // ── pieces with a city map: the map film, then the details below it ──
+  // ── pieces with a city map: the map film, then the story (or details) ──
   const film = document.querySelector<HTMLElement>('[data-film]');
   if (film) {
     await filmScene(film);
+    if (story) {
+      playStory(story);
+      railFor(story);
+    }
     const details = document.querySelector<HTMLElement>('[data-details]');
     if (details) {
       readingScene(details);

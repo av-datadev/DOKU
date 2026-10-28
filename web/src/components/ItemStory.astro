@@ -1,0 +1,212 @@
+---
+import type { Product } from '../lib/products';
+import type { Origin } from '../lib/origins';
+import type { Chapter } from '../lib/stories';
+import { matImage } from '../lib/products';
+import ItemBuy from './ItemBuy.astro';
+import ItemWaitlist from './ItemWaitlist.astro';
+import '../styles/story.css';
+
+// The item page's story, after the map film: the piece's own story told in
+// full-screen chapters (lib/stories.json), large enough to read and arranged
+// so the visitor never has to look for it. This markup is the whole story,
+// readable with no JS and no motion; on .motion pages motion/scenes/story.ts
+// pins and plays each chapter and adds the chapter list.
+//
+// The record chapter carries what the plain details section did (specs, the
+// hold note, the wishlist, the waitlist); the craft and place chapters carry
+// the city and its market. The finale holds the piece — no price.
+interface Props {
+  product: Product;
+  origin: Origin;
+  chapters: Chapter[];
+  specs: [string, string][];
+  buy: Record<string, unknown>;
+  canWaitlist: boolean;
+  inCart: boolean;
+}
+const { product: p, origin: o, chapters, specs, buy, canWaitlist, inCart } = Astro.props;
+const photo = matImage(p);
+const available = p.status === 'available';
+const gone = p.status === 'reserved' ? 'Spoken for.' : p.status === 'claimed' ? 'Claimed. It does not return.' : null;
+const slug = (c: Chapter, i: number) => `${c.kind}-${i}`;
+const credit = 'Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>';
+---
+
+<div class="story" data-story>
+  {chapters.map((c, i) => (
+    <section class={`st stc-${c.kind}`} id={slug(c, i)} data-ch={c.kind}>
+      {c.kind === 'hook' && (
+        <div class="st-c">
+          <div class="st-title">{c.title}</div>
+          <p class="st-big serif" set:html={c.line} />
+        </div>
+      )}
+
+      {c.kind === 'bench' && (
+        <>
+          <div class="st-c">
+            <div class="st-title">{c.title}</div>
+            <p class="st-big serif" set:html={c.line} />
+          </div>
+          <span class="st-wood" aria-hidden="true"></span>
+          <div class="st-marks" aria-hidden="true">{c.marks?.map((m) => <span>{m}</span>)}</div>
+        </>
+      )}
+
+      {c.kind === 'place' && (
+        <>
+          <div class="st-map" aria-hidden="true" style={`background-image:url(/origins/${p.sku}.svg)`}></div>
+          <div class="st-veil" aria-hidden="true"></div>
+          <div class="st-c">
+            <div class="st-title">{c.title}</div>
+            <h2 class="st-h serif" set:html={c.line} />
+            {c.after && <p class="st-after">{c.after}</p>}
+          </div>
+          <p class="st-credit" set:html={credit} />
+        </>
+      )}
+
+      {c.kind === 'layers' && (
+        <div class="st-split">
+          <div class="st-coats" aria-hidden="true">
+            {[80, 72, 64, 56, 48, 40, 32, 24].map((t) => <span class="st-coat" style={`top:${t}%`}></span>)}
+            <span class="st-gild"></span>
+          </div>
+          <div class="st-steps">
+            <div class="st-title">{c.title}</div>
+            {c.steps?.map((s) => <p class="st-step serif">{s}</p>)}
+          </div>
+        </div>
+      )}
+
+      {c.kind === 'sentence' && (
+        <div class="st-c">
+          <div class="st-title">{c.title}</div>
+          <p class="st-sentence serif">
+            {c.words?.split(' ').map((w) => (w.startsWith('*') ? <span class="keep">{w.replaceAll('*', '')} </span> : <span>{w} </span>))}
+          </p>
+          {c.after && <p class="st-after st-gold serif">{c.after}</p>}
+        </div>
+      )}
+
+      {c.kind === 'kiln' && (
+        <>
+          <span class="st-ember" aria-hidden="true"></span>
+          <div class="st-c">
+            <div class="st-title">{c.title}</div>
+            <h2 class="st-h serif" set:html={c.line} />
+          </div>
+        </>
+      )}
+
+      {c.kind === 'shelf' && (
+        <div class="st-c">
+          <div class="st-shelf" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map((n) => <i class={n === 3 ? 'one' : ''}></i>)}</div>
+          <div class="st-title">{c.title}</div>
+          <h2 class="st-h st-xl serif" set:html={c.line} />
+        </div>
+      )}
+
+      {c.kind === 'lines' && (
+        <div class="st-c st-left">
+          <div class="st-title">{c.title}</div>
+          {c.lines?.map((l) => <p class="st-line serif">{l}</p>)}
+          {c.last && <p class="st-line st-last serif">{c.last}</p>}
+        </div>
+      )}
+
+      {c.kind === 'loom' && (
+        <div class="st-split">
+          <svg class="st-loom" viewBox="0 0 300 360" aria-hidden="true">
+            <line class="st-beam" x1="10" y1="10" x2="290" y2="10" />
+            <g class="st-warps"></g><g class="st-wefts"></g>
+            <line class="st-beam" x1="10" y1="350" x2="290" y2="350" />
+          </svg>
+          <div class="st-steps">
+            <div class="st-title">{c.title}</div>
+            <h2 class="st-h serif" set:html={c.line} />
+            {c.after && <p class="st-after">{c.after}</p>}
+          </div>
+        </div>
+      )}
+
+      {c.kind === 'strikes' && (
+        <div class="st-c st-left">
+          <div class="st-title">{c.title}</div>
+          {c.struck?.map((s) => <p class="st-line st-strike serif">{s}</p>)}
+          {c.blurred && <p class="st-line st-blur serif">{c.blurred}</p>}
+          {c.after && <p class="st-after st-gold serif">{c.after}</p>}
+        </div>
+      )}
+
+      {c.kind === 'angles' && (
+        <>
+          <div class="st-angles-head">
+            <div class="st-title">{c.title}</div>
+            <h2 class="st-h serif">{c.line}</h2>
+          </div>
+          <div class="st-track">
+            {c.shots?.map((s, n) => (
+              <figure class="st-shot">
+                {n === 0 && photo ? (
+                  <div class="st-frame st-photo"><img src={photo} alt={`${p.title} — ${s.toLowerCase()}`} loading="lazy" /></div>
+                ) : (
+                  <div class="st-frame"><span class="st-pending">Photograph to come</span></div>
+                )}
+                <figcaption><small>{['I', 'II', 'III', 'IV', 'V', 'VI'][n]}</small>{s}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </>
+      )}
+
+      {c.kind === 'craft' && (
+        <div class="st-c">
+          <div class="st-title">{c.title}</div>
+          <p class="st-craft serif" set:html={c.line} />
+          <p class="st-market"><b class="serif">{o.market}</b>Where this craft still lives. {o.marketNote}</p>
+        </div>
+      )}
+
+      {c.kind === 'record' && (
+        <div class="st-split st-record">
+          <div>
+            <div class="st-title">{c.title}</div>
+            <h2 class="st-struck serif">
+              {c.struck?.map((s) => <span class="x">{s}</span>)}
+              <span>{c.kept}</span>
+            </h2>
+            {c.note && <p class="st-after">{c.note}</p>}
+          </div>
+          <div>
+            <div class="st-notes"><ItemBuy part="notes" {...(buy as any)} /></div>
+            <div class="st-ledger">{specs.map(([k, v]) => <div><span>{k}</span><span>{v}</span></div>)}</div>
+            {canWaitlist && <ItemWaitlist product={p} />}
+          </div>
+        </div>
+      )}
+
+      {c.kind === 'finale' && (
+        <div class="st-c">
+          <div class="st-title">{c.title}</div>
+          {photo && <figure class="st-mat"><img src={photo} alt="" loading="lazy" /></figure>}
+          <h2 class="st-finale serif">{c.lines?.map((l) => <span>{l}</span>)}</h2>
+          {available ? (
+            <form class="st-hold" method="POST" action="/api/cart" data-hold>
+              <input type="hidden" name="action" value="hold" />
+              <input type="hidden" name="sku" value={p.sku} />
+              <input type="hidden" name="redirect" value={`/item/${p.sku}`} />
+              <button class="btn-gold" type="submit" disabled={inCart} data-hold-btn data-cursor="Hold">
+                <span data-hold-label>{inCart ? 'Held for you' : 'Hold this DOKU'}</span>
+              </button>
+            </form>
+          ) : (
+            gone && <p class="st-gone serif">{gone}</p>
+          )}
+          {available && c.sub && <p class="st-sub">{c.sub}</p>}
+        </div>
+      )}
+    </section>
+  ))}
+</div>
