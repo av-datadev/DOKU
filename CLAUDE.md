@@ -169,6 +169,40 @@ DOKU" for exactly this reason).
     019 Tokyo, 020 Aberdeen, 021 Oslo. If Overpass is overloaded the script
     skips the city; just run it again later.
 
+- **Item story (added 2026-10-28, live for 014, 015, 016)** — after the map
+  film, a piece with a written story continues into its own story instead of
+  the plain details section: full-screen chapters in large type, each pinned
+  and scroll-played (native scroll, pin only). Owner's brief: the story must
+  tell itself — the visitor never hunts for where it was found, how it was
+  made, why it's the only one — and it ends on a line about the piece with a
+  second "Hold this DOKU", **no price**.
+  - Content: `web/src/lib/stories.json` (per sku, a list of chapters, each a
+    `kind` + its lines; types in `lib/stories.ts`). Kinds: hook, bench,
+    place (city map behind), layers (lacquer coats), sentence (words fade to
+    the ones that matter), kiln (embers), shelf (one place lit), lines,
+    loom (warp + weft weave), strikes (gold strike-throughs), angles (photo
+    track: the photo + "Photograph to come" frames until real angle shots
+    exist), craft, record, finale.
+  - **Every line restates the product's own story/specs/city notes — never
+    add a fact** (no invented makers, dates, signatures, purchase places).
+    Closing lines may persuade only with what's true (1 of 1, someone else
+    wanted it, it can't be made again).
+  - Markup `components/ItemStory.astro` (styles `styles/story.css`) is the
+    whole story, readable with no JS/motion; the record chapter carries
+    specs, the hold note, wishlist and waitlist. Chapter sections are
+    `.stc-<kind>`; `.st-*` names are their contents (keep them apart — a
+    shared name once squeezed the loom chapter into one column).
+  - Motion `motion/scenes/story.ts`: one builder per kind; chapters pin below
+    the sticky header and only if they fit one screen (else they reveal
+    once). The chapter list on the left is built from the chapter titles,
+    tracks the chapter on screen from live positions, jumps on click, and
+    hides over the photos and outside the story. Desktop only.
+  - Both hold buttons (`#hold-form`, `form[data-hold]`) hold the piece and
+    both then read "Held for you".
+  - **To add a story:** write its chapters into `stories.json` from the
+    piece's own copy; the piece needs a rendered origin map (the story sits
+    after the film).
+
 ## Hard rules — do not relax without the owner explicitly overriding in chat
 1. ~~**Never display an image of an object DOKU doesn't physically own**, even
    as a placeholder, unless it carries a visible "Reference image — not the
