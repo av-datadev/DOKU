@@ -218,9 +218,14 @@ twice, plus a redirected Frankfurter call) — 2–4s before any HTML.
   without CORS, which also broke the browser fetch).
 - Measured after deploy: browsing pages ~0.3–0.5s server time (warm), same
   as `/privacy` which never touches the database.
-- **Still heavy:** 017 and 018 store their photos as base64 data URIs in
-  the DB `image` column (~330 KB embedded in every page that shows them,
-  uncacheable). Move them to files once the images themselves are settled.
+- **Never store photos as base64 in the DB `image` column.** 017/018 did
+  (~330 KB embedded in every page that showed them, uncacheable — and they
+  were a screenshot + a social-media image, i.e. unlicensed). Replaced
+  2026-10-28 with Met Open Access (CC0) files: 017 = Peruvian silver ear
+  ornaments (Met 141762), 018 = Cycladic marble head (Met 255176); DB
+  `image` cleared, both now in `DEFAULT_IMAGES`. Pages dropped from ~356 KB
+  to ~25 KB of HTML. Put any new photo in `web/public/products/` (or R2)
+  and store the path. Note: the 017 original is small (728×389).
 
 ## Data model
 Catalog data lives in a Supabase Postgres table, `public.products`
